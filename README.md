@@ -14,7 +14,17 @@ This repo serves two purposes:
 
 ## Screenshots
 
-_Coming soon._
+| Landing page | Dashboard overview |
+| --- | --- |
+| ![Landing page](./docs/screenshots/landing.png) | ![Dashboard overview](./docs/screenshots/dashboard-overview.png) |
+
+| Project detail | Wallet |
+| --- | --- |
+| ![Project detail](./docs/screenshots/project-detail.png) | ![Wallet](./docs/screenshots/wallet.png) |
+
+| New project wizard |
+| --- |
+| ![New project wizard](./docs/screenshots/new-project-wizard.png) |
 
 ## Tech stack
 
