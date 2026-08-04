@@ -18,6 +18,8 @@ export type MilestoneStatus =
   | "REJECTED"
   | "DISPUTED";
 
+export type DisputeOutcome = "CLIENT" | "FREELANCER" | "SPLIT";
+
 export type PaymentType = "DEPOSIT" | "RELEASE" | "WITHDRAWAL" | "REFUND";
 
 export type PaymentStatus = "PENDING" | "COMPLETED" | "FAILED";
@@ -57,6 +59,21 @@ export interface Milestone {
   rejectedAt?: string;
   rejectionReason?: string;
   releasedAt?: string;
+}
+
+export interface Dispute {
+  id: string;
+  projectId: string;
+  milestoneId: string;
+  initiatorId: string;
+  initiatorName: string;
+  reason: string;
+  createdAt: string;
+  expectedResolutionAt: string;
+  resolved: boolean;
+  resolvedAt?: string;
+  outcome?: DisputeOutcome;
+  clientSplitPercent?: number;
 }
 
 export interface Project {

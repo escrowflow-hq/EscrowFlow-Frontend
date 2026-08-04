@@ -1,4 +1,5 @@
 import type {
+  Dispute,
   Message,
   Payment,
   Project,
@@ -125,7 +126,7 @@ export const INITIAL_PROJECTS: Project[] = [
     freelancerId: "user-1",
     freelancerName: "Alex Rivera",
     freelancerEmail: "alex@escrowflow.dev",
-    status: "ACTIVE",
+    status: "DISPUTED",
     budget: 3000,
     escrowFunded: true,
     escrowBalance: 2000,
@@ -149,7 +150,7 @@ export const INITIAL_PROJECTS: Project[] = [
         title: "Webhook handling",
         description: "Implement idempotent webhook processing with retries.",
         amount: 1200,
-        status: "REJECTED",
+        status: "DISPUTED",
         order: 2,
         submittedAt: "2026-07-25T14:00:00.000Z",
         rejectedAt: "2026-07-27T09:00:00.000Z",
@@ -288,6 +289,21 @@ export const INITIAL_MESSAGES: Message[] = [
     senderName: "Nina Petrova",
     body: "The webhook handler is double-processing refund events in the sandbox — can you take another look?",
     createdAt: "2026-07-27T09:05:00.000Z",
+  },
+];
+
+export const INITIAL_DISPUTES: Dispute[] = [
+  {
+    id: "dispute-1",
+    projectId: "proj-3",
+    milestoneId: "m-3-2",
+    initiatorId: "user-1",
+    initiatorName: "Alex Rivera",
+    reason:
+      "The client rejected this milestone citing duplicate webhook events, but all edge cases have been fixed per the updated sequence diagram shared in Messages. Escalating for arbitration.",
+    createdAt: "2026-07-28T10:00:00.000Z",
+    expectedResolutionAt: "2026-08-08T00:00:00.000Z",
+    resolved: false,
   },
 ];
 

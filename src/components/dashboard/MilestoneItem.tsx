@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { AlertTriangle } from "lucide-react";
-import { MilestoneStatusBadge } from "@/components/ui/Badge";
+import { DisputeBadge, MilestoneStatusBadge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { DisputeModal } from "@/components/DisputeModal";
 import { formatUSD, releaseFee } from "@/lib/fees";
 import { formatDate } from "@/lib/utils";
 import { useAppStore } from "@/lib/store";
@@ -21,9 +22,13 @@ export function MilestoneItem({
   const [note, setNote] = useState("");
   const [reason, setReason] = useState("");
   const [mode, setMode] = useState<"idle" | "submit" | "reject">("idle");
+  const [disputeOpen, setDisputeOpen] = useState(false);
   const approveMilestone = useAppStore((s) => s.approveMilestone);
   const requestChanges = useAppStore((s) => s.requestChanges);
   const submitMilestone = useAppStore((s) => s.submitMilestone);
+  const dispute = useAppStore((s) =>
+    s.state.disputes.find((d) => d.projectId === milestone.projectId && d.milestoneId === milestone.id)
+  );
   const error = useAppStore((s) => s.error);
 
   const canSubmit =
@@ -38,7 +43,11 @@ export function MilestoneItem({
           <p className="font-medium text-ink">{milestone.title}</p>
           <p className="mt-1 text-sm text-ink-secondary">{milestone.description}</p>
         </div>
-        <MilestoneStatusBadge status={milestone.status} />
+        {milestone.status === "DISPUTED" ? (
+          <DisputeBadge onClick={() => setDisputeOpen(true)} />
+        ) : (
+          <MilestoneStatusBadge status={milestone.status} />
+        )}
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-secondary">
@@ -152,6 +161,8 @@ export function MilestoneItem({
       )}
 
       {error && (canSubmit || canReview) && <p className="mt-2 text-sm text-danger">{error}</p>}
+
+      {disputeOpen && dispute && <DisputeModal dispute={dispute} onClose={() => setDisputeOpen(false)} />}
     </li>
   );
 }

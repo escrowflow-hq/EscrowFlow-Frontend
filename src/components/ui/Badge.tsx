@@ -68,6 +68,22 @@ export function MilestoneStatusBadge({ status }: { status: MilestoneStatus }) {
   return <Badge tone={MILESTONE_STATUS_TONE[status]}>{MILESTONE_STATUS_LABEL[status]}</Badge>;
 }
 
+export function DisputeBadge({ onClick }: { onClick?: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-wide whitespace-nowrap",
+        "bg-warning-bg text-warning",
+        "hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning focus-visible:ring-offset-1"
+      )}
+    >
+      Disputed
+    </button>
+  );
+}
+
 const PAYMENT_STATUS_TONE: Record<PaymentStatus, Tone> = {
   PENDING: "warning",
   COMPLETED: "success",

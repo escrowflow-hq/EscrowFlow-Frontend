@@ -1,5 +1,7 @@
 import type {
   DepositMethod,
+  Dispute,
+  DisputeOutcome,
   Message,
   Payment,
   Project,
@@ -8,7 +10,15 @@ import type {
   WalletState,
   WithdrawDestination,
 } from "@/lib/types";
-import { CURRENT_USER, INITIAL_FILES, INITIAL_MESSAGES, INITIAL_PAYMENTS, INITIAL_PROJECTS, INITIAL_WALLET } from "@/lib/mock/data";
+import {
+  CURRENT_USER,
+  INITIAL_DISPUTES,
+  INITIAL_FILES,
+  INITIAL_MESSAGES,
+  INITIAL_PAYMENTS,
+  INITIAL_PROJECTS,
+  INITIAL_WALLET,
+} from "@/lib/mock/data";
 import { DEPOSIT_FEES, releaseFee, WITHDRAW_FEES } from "@/lib/fees";
 
 export interface MockState {
@@ -18,6 +28,7 @@ export interface MockState {
   payments: Payment[];
   messages: Message[];
   files: ProjectFile[];
+  disputes: Dispute[];
 }
 
 export class MockServiceError extends Error {}
@@ -30,6 +41,7 @@ export function createInitialState(): MockState {
     payments: [...INITIAL_PAYMENTS],
     messages: [...INITIAL_MESSAGES],
     files: [...INITIAL_FILES],
+    disputes: INITIAL_DISPUTES.map((d) => ({ ...d })),
   };
 }
 
@@ -170,6 +182,82 @@ export function requestChanges(
               m.id !== milestoneId ? m : { ...m, status: "REJECTED", rejectedAt: now, rejectionReason: reason }
             ),
           }
+    ),
+  };
+}
+
+export function findDisputeForMilestone(
+  state: MockState,
+  escrowId: string,
+  milestoneId: string
+): Dispute | undefined {
+  return state.disputes.find((d) => d.projectId === escrowId && d.milestoneId === milestoneId);
+}
+
+export function openDispute(
+  state: MockState,
+  escrowId: string,
+  milestoneId: string,
+  initiator: string,
+  reason: string
+): MockState {
+  const project = findProject(state, escrowId);
+  const milestone = project.milestones.find((m) => m.id === milestoneId);
+  if (!milestone) throw new MockServiceError(`Milestone ${milestoneId} not found`);
+  if (milestone.status === "DISPUTED") {
+    throw new MockServiceError("This milestone already has an open dispute");
+  }
+  if (!reason.trim()) {
+    throw new MockServiceError("Explain the reason for the dispute");
+  }
+
+  const now = new Date();
+  const dispute: Dispute = {
+    id: `dispute-${Date.now()}`,
+    projectId: escrowId,
+    milestoneId,
+    initiatorId: state.currentUser.id,
+    initiatorName: initiator,
+    reason,
+    createdAt: now.toISOString(),
+    expectedResolutionAt: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    resolved: false,
+  };
+
+  return {
+    ...state,
+    disputes: [dispute, ...state.disputes],
+    projects: state.projects.map((p) =>
+      p.id !== escrowId
+        ? p
+        : {
+            ...p,
+            status: "DISPUTED",
+            milestones: p.milestones.map((m) => (m.id !== milestoneId ? m : { ...m, status: "DISPUTED" })),
+          }
+    ),
+  };
+}
+
+export function resolveDispute(
+  state: MockState,
+  escrowId: string,
+  milestoneId: string,
+  outcome: DisputeOutcome,
+  split?: number
+): MockState {
+  const dispute = findDisputeForMilestone(state, escrowId, milestoneId);
+  if (!dispute || dispute.resolved) {
+    throw new MockServiceError("No open dispute found for this milestone");
+  }
+
+  const now = new Date().toISOString();
+  const clientSplitPercent = outcome === "SPLIT" ? Math.min(100, Math.max(0, split ?? 50)) : undefined;
+
+  return {
+    ...state,
+    disputes: state.disputes.map((d) =>
+      d.id !== dispute.id ? d : { ...d, resolved: true, resolvedAt: now, outcome, clientSplitPercent }
     ),
   };
 }

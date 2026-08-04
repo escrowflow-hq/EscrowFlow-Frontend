@@ -1,7 +1,7 @@
 "use client";
 
 import { create } from "zustand";
-import type { DepositMethod, UserRole, WithdrawDestination } from "@/lib/types";
+import type { DepositMethod, DisputeOutcome, UserRole, WithdrawDestination } from "@/lib/types";
 import {
   approveMilestone,
   createInitialState,
@@ -11,7 +11,9 @@ import {
   fundEscrow,
   MockServiceError,
   MockState,
+  openDispute,
   requestChanges,
+  resolveDispute,
   sendMessage,
   submitMilestone,
   updateNotificationPreference,
@@ -29,6 +31,8 @@ interface AppStore {
   approveMilestone: (projectId: string, milestoneId: string) => void;
   requestChanges: (projectId: string, milestoneId: string, reason: string) => void;
   submitMilestone: (projectId: string, milestoneId: string, note: string) => void;
+  openDispute: (escrowId: string, milestoneId: string, initiator: string, reason: string) => void;
+  resolveDispute: (escrowId: string, milestoneId: string, outcome: DisputeOutcome, split?: number) => void;
   fundEscrow: (projectId: string) => void;
   withdraw: (amount: number, destination: WithdrawDestination) => void;
   deposit: (amount: number, method: DepositMethod) => void;
@@ -64,6 +68,10 @@ export const useAppStore = create<AppStore>((set, get) => ({
     run(() => requestChanges(get().state, projectId, milestoneId, reason), set, get),
   submitMilestone: (projectId, milestoneId, note) =>
     run(() => submitMilestone(get().state, projectId, milestoneId, note), set, get),
+  openDispute: (escrowId, milestoneId, initiator, reason) =>
+    run(() => openDispute(get().state, escrowId, milestoneId, initiator, reason), set, get),
+  resolveDispute: (escrowId, milestoneId, outcome, split) =>
+    run(() => resolveDispute(get().state, escrowId, milestoneId, outcome, split), set, get),
   fundEscrow: (projectId) => run(() => fundEscrow(get().state, projectId), set, get),
   withdraw: (amount, destination) => run(() => withdraw(get().state, amount, destination), set, get),
   deposit: (amount, method) => run(() => deposit(get().state, amount, method), set, get),
