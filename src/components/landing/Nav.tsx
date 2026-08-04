@@ -1,4 +1,3 @@
-import { Github } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { LinkButton } from "@/components/ui/Button";
 
@@ -23,15 +22,6 @@ export function Nav() {
           ))}
         </ul>
         <div className="flex items-center gap-2">
-          <a
-            href="https://github.com/escrowflow-hq"
-            target="_blank"
-            rel="noreferrer"
-            className="hidden items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-ink-secondary hover:bg-surface sm:inline-flex"
-          >
-            <Github className="h-4 w-4" aria-hidden="true" />
-            GitHub
-          </a>
           <LinkButton href="/app" size="sm">
             Open app
           </LinkButton>

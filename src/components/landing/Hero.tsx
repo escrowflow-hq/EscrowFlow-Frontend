@@ -1,4 +1,3 @@
-import { Github } from "lucide-react";
 import { LinkButton } from "@/components/ui/Button";
 
 export function Hero() {
@@ -18,15 +17,6 @@ export function Hero() {
             <LinkButton href="/app" size="lg">
               Open app
             </LinkButton>
-            <a
-              href="https://github.com/escrowflow-hq"
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-line px-6 text-base font-medium text-ink hover:bg-surface"
-            >
-              <Github className="h-5 w-5" aria-hidden="true" />
-              View on GitHub
-            </a>
           </div>
         </div>
 

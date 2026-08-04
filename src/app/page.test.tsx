@@ -21,9 +21,5 @@ describe("LandingPage", () => {
       screen.getByRole("heading", { level: 1, name: /get paid safely for work, anywhere in the world/i })
     ).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: /open app/i }).length).toBeGreaterThan(0);
-    expect(screen.getByRole("link", { name: /view on github/i })).toHaveAttribute(
-      "href",
-      "https://github.com/escrowflow-hq"
-    );
   });
 });
