@@ -1,36 +1,4 @@
-"use client";
-
-import { Component, type ReactNode } from "react";
-import dynamic from "next/dynamic";
 import { LinkButton } from "@/components/ui/Button";
-
-// Three.js needs a real browser (WebGL/canvas), so this can only ever run on
-// the client. ssr: false skips it during the server render entirely, and the
-// loading fallback covers the gap until the chunk arrives.
-const HeroAnimation = dynamic(() => import("@/components/HeroAnimation").then((mod) => mod.HeroAnimation), {
-  ssr: false,
-  loading: () => <HeroVisualPlaceholder />,
-});
-
-function HeroVisualPlaceholder() {
-  return <div className="h-full w-full bg-gradient-to-br from-primary-light via-white to-success-bg" />;
-}
-
-// getDerivedStateFromError only exists on class components — there's no hook
-// equivalent — so this catches a WebGL init failure at runtime (e.g. no GPU/
-// WebGL support) and swaps in the same gradient used while the chunk loads.
-class HeroVisualBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
-  state = { hasError: false };
-
-  static getDerivedStateFromError() {
-    return { hasError: true };
-  }
-
-  render() {
-    if (this.state.hasError) return <HeroVisualPlaceholder />;
-    return this.props.children;
-  }
-}
 
 export function Hero() {
   return (
@@ -52,13 +20,39 @@ export function Hero() {
           </div>
         </div>
 
-        <div
-          aria-hidden="true"
-          className="relative mx-auto aspect-square w-full max-w-md overflow-hidden rounded-2xl border border-line"
-        >
-          <HeroVisualBoundary>
-            <HeroAnimation />
-          </HeroVisualBoundary>
+        <div aria-hidden="true" className="relative mx-auto w-full max-w-sm">
+          <div className="rounded-2xl border border-line bg-white p-6">
+            <p className="text-sm text-ink-secondary">Available balance</p>
+            <p className="mt-1 text-3xl font-semibold text-ink">$1,840.50</p>
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <div className="rounded-xl bg-surface p-3">
+                <p className="text-xs text-ink-secondary">Pending earnings</p>
+                <p className="mt-1 text-base font-semibold text-ink">$1,455.00</p>
+              </div>
+              <div className="rounded-xl bg-surface p-3">
+                <p className="text-xs text-ink-secondary">In escrow</p>
+                <p className="mt-1 text-base font-semibold text-ink">$2,700.00</p>
+              </div>
+            </div>
+            <div className="mt-5 space-y-3">
+              <div className="flex items-center justify-between rounded-xl border border-line p-3">
+                <div>
+                  <p className="text-sm font-medium text-ink">Homepage & pricing build</p>
+                  <p className="text-xs text-ink-secondary">Milestone 2 of 3</p>
+                </div>
+                <span className="rounded-full bg-warning-bg px-2.5 py-1 text-xs font-medium text-warning">
+                  Submitted
+                </span>
+              </div>
+              <div className="h-2 w-full overflow-hidden rounded-full bg-line">
+                <div className="h-full w-2/3 rounded-full bg-primary" />
+              </div>
+            </div>
+          </div>
+          <div className="absolute -bottom-6 -left-6 hidden rounded-xl border border-line bg-white px-4 py-3 shadow-sm sm:block">
+            <p className="text-xs text-ink-secondary">Milestone released</p>
+            <p className="text-sm font-semibold text-success">+$1,455.00</p>
+          </div>
         </div>
       </div>
     </section>
