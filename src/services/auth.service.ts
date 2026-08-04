@@ -1,5 +1,5 @@
 import { API_URL, USE_MOCK } from "@/lib/config";
-import type { User } from "@/lib/types";
+import type { User, UserRole } from "@/lib/types";
 
 export interface AuthResult {
   user: User;
@@ -28,12 +28,12 @@ function mockToken(email: string): string {
   return `mock-${Math.random().toString(36).slice(2)}-${Date.now()}-${email.length}`;
 }
 
-function mockUser(name: string, email: string): User {
+function mockUser(name: string, email: string, role: UserRole): User {
   return {
     id: `user-${Date.now()}`,
     name,
     email,
-    role: "CLIENT",
+    role,
     kycStatus: "NOT_STARTED",
     walletAddress: "",
     avatarColor: "#3B6DF5",
@@ -60,7 +60,9 @@ async function login(email: string, password: string): Promise<AuthResult> {
     await delay(400);
     const name = email.split("@")[0] || "Member";
     return {
-      user: mockUser(name.charAt(0).toUpperCase() + name.slice(1), email),
+      // Login doesn't collect a role — the mock backend has no memory of what
+      // was chosen at signup, so this just defaults to CLIENT.
+      user: mockUser(name.charAt(0).toUpperCase() + name.slice(1), email, "CLIENT"),
       token: mockToken(email),
     };
   }
@@ -76,7 +78,7 @@ async function login(email: string, password: string): Promise<AuthResult> {
   return res.json();
 }
 
-async function register(name: string, email: string, password: string): Promise<AuthResult> {
+async function register(name: string, email: string, password: string, role: UserRole): Promise<AuthResult> {
   if (!name.trim()) {
     throw new AuthError("Enter your full name");
   }
@@ -85,13 +87,13 @@ async function register(name: string, email: string, password: string): Promise<
 
   if (USE_MOCK) {
     await delay(400);
-    return { user: mockUser(name.trim(), email), token: mockToken(email) };
+    return { user: mockUser(name.trim(), email, role), token: mockToken(email) };
   }
 
   const res = await fetch(`${API_URL}/auth/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, email, password }),
+    body: JSON.stringify({ name, email, password, role }),
   });
   if (!res.ok) {
     throw new AuthError(await parseErrorMessage(res, "Could not create your account"));

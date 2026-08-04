@@ -3,7 +3,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { authService, AuthError } from "@/services/auth.service";
-import type { User } from "@/lib/types";
+import type { User, UserRole } from "@/lib/types";
 
 const TOKEN_COOKIE = "token";
 const COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
@@ -22,11 +22,12 @@ interface AuthStore {
   isAuthenticated: boolean;
   token: string | null;
   user: User | null;
+  userRole: UserRole;
   isLoading: boolean;
   error: string | null;
   hasHydrated: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (name: string, email: string, password: string) => Promise<void>;
+  register: (name: string, email: string, password: string, role: UserRole) => Promise<void>;
   requestPasswordReset: (email: string) => Promise<void>;
   logout: () => void;
   clearError: () => void;
@@ -39,6 +40,7 @@ export const useAuthStore = create<AuthStore>()(
       isAuthenticated: false,
       token: null,
       user: null,
+      userRole: "CLIENT",
       isLoading: false,
       error: null,
       hasHydrated: false,
@@ -47,19 +49,19 @@ export const useAuthStore = create<AuthStore>()(
         try {
           const { user, token } = await authService.login(email, password);
           setTokenCookie(token);
-          set({ user, token, isAuthenticated: true, isLoading: false });
+          set({ user, token, isAuthenticated: true, userRole: user.role, isLoading: false });
         } catch (err) {
           const message = err instanceof AuthError ? err.message : "Something went wrong. Try again.";
           set({ isLoading: false, error: message });
           throw err;
         }
       },
-      register: async (name, email, password) => {
+      register: async (name, email, password, role) => {
         set({ isLoading: true, error: null });
         try {
-          const { user, token } = await authService.register(name, email, password);
+          const { user, token } = await authService.register(name, email, password, role);
           setTokenCookie(token);
-          set({ user, token, isAuthenticated: true, isLoading: false });
+          set({ user, token, isAuthenticated: true, userRole: user.role, isLoading: false });
         } catch (err) {
           const message = err instanceof AuthError ? err.message : "Something went wrong. Try again.";
           set({ isLoading: false, error: message });
@@ -79,7 +81,7 @@ export const useAuthStore = create<AuthStore>()(
       },
       logout: () => {
         clearTokenCookie();
-        set({ user: null, token: null, isAuthenticated: false, error: null });
+        set({ user: null, token: null, isAuthenticated: false, userRole: "CLIENT", error: null });
         if (typeof window !== "undefined") {
           window.location.href = "/";
         }
@@ -95,6 +97,7 @@ export const useAuthStore = create<AuthStore>()(
         isAuthenticated: state.isAuthenticated,
         token: state.token,
         user: state.user,
+        userRole: state.userRole,
       }),
       onRehydrateStorage: () => () => {
         useAuthStore.setState({ hasHydrated: true });

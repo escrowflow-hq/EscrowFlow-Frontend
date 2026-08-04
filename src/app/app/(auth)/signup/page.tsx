@@ -6,9 +6,16 @@ import { useRouter } from "next/navigation";
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/Button";
 import { useAuthStore } from "@/store/auth.store";
+import { cn } from "@/lib/utils";
+import type { UserRole } from "@/lib/types";
 
 const FIELD_CLASSES =
   "mt-1.5 w-full rounded-xl border border-line p-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary";
+
+const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
+  { value: "CLIENT", label: "Client (paying for work)" },
+  { value: "FREELANCER", label: "Freelancer (doing work)" },
+];
 
 export default function SignupPage() {
   const router = useRouter();
@@ -19,6 +26,7 @@ export default function SignupPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [role, setRole] = useState<UserRole>("CLIENT");
 
   useEffect(() => {
     clearError();
@@ -27,7 +35,7 @@ export default function SignupPage() {
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     try {
-      await register(name, email, password);
+      await register(name, email, password, role);
       router.push("/app");
     } catch {
       // error state is surfaced from the store below
@@ -91,6 +99,34 @@ export default function SignupPage() {
                 className={FIELD_CLASSES}
               />
               <p className="mt-1.5 text-xs text-ink-secondary">Must be at least 8 characters.</p>
+            </div>
+
+            <div>
+              <span className="text-sm font-medium text-ink">I am a...</span>
+              <div className="mt-1.5 grid grid-cols-2 gap-3" role="radiogroup" aria-label="I am a...">
+                {ROLE_OPTIONS.map((option) => {
+                  const isSelected = role === option.value;
+                  return (
+                    <label
+                      key={option.value}
+                      className={cn(
+                        "flex cursor-pointer items-center gap-2 rounded-xl border p-3 text-sm font-medium transition-colors",
+                        isSelected ? "border-primary bg-primary-light text-primary" : "border-line text-ink hover:bg-surface"
+                      )}
+                    >
+                      <input
+                        type="radio"
+                        name="role"
+                        value={option.value}
+                        checked={isSelected}
+                        onChange={() => setRole(option.value)}
+                        className="sr-only"
+                      />
+                      {option.label}
+                    </label>
+                  );
+                })}
+              </div>
             </div>
 
             {error && (

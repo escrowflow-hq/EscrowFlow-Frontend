@@ -22,6 +22,7 @@ describe("useAuthStore", () => {
     expect(state.isAuthenticated).toBe(false);
     expect(state.token).toBeNull();
     expect(state.user).toBeNull();
+    expect(state.userRole).toBe("CLIENT");
   });
 
   it("authenticates on successful login and persists to localStorage", async () => {
@@ -44,17 +45,23 @@ describe("useAuthStore", () => {
     expect(state.error).toMatch(/at least 8 characters/i);
   });
 
-  it("authenticates on successful register", async () => {
-    await useAuthStore.getState().register("Alex Rivera", "alex@example.com", "password123");
+  it("authenticates on successful register and stores the selected role", async () => {
+    await useAuthStore.getState().register("Alex Rivera", "alex@example.com", "password123", "FREELANCER");
 
     const state = useAuthStore.getState();
     expect(state.isAuthenticated).toBe(true);
     expect(state.user?.name).toBe("Alex Rivera");
+    expect(state.userRole).toBe("FREELANCER");
+    expect(state.user?.role).toBe("FREELANCER");
+
+    const persisted = window.localStorage.getItem("escrowflow-auth");
+    expect(persisted).toContain("FREELANCER");
   });
 
-  it("clears state on logout", async () => {
-    await useAuthStore.getState().login("alex@example.com", "password123");
+  it("clears state, including role, on logout", async () => {
+    await useAuthStore.getState().register("Alex Rivera", "alex@example.com", "password123", "FREELANCER");
     expect(useAuthStore.getState().isAuthenticated).toBe(true);
+    expect(useAuthStore.getState().userRole).toBe("FREELANCER");
 
     vi.spyOn(window, "location", "get").mockReturnValue({
       ...window.location,
@@ -67,6 +74,7 @@ describe("useAuthStore", () => {
     expect(state.isAuthenticated).toBe(false);
     expect(state.token).toBeNull();
     expect(state.user).toBeNull();
+    expect(state.userRole).toBe("CLIENT");
   });
 
   it("requests a password reset without authenticating", async () => {

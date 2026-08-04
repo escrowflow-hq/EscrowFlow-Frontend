@@ -6,8 +6,10 @@ import { BalanceCard } from "@/components/dashboard/BalanceCard";
 import { ProjectListItem } from "@/components/dashboard/ProjectListItem";
 import { PaymentListItem } from "@/components/dashboard/PaymentListItem";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { Badge } from "@/components/ui/Badge";
 import { LinkButton } from "@/components/ui/Button";
 import { useAppStore } from "@/lib/store";
+import { useAuthStore } from "@/store/auth.store";
 import { computeWalletSummary } from "@/lib/mock/service";
 
 function SkeletonBlock({ className }: { className?: string }) {
@@ -18,6 +20,7 @@ export default function OverviewPage() {
   const [isLoading, setIsLoading] = useState(true);
   const state = useAppStore((s) => s.state);
   const viewRole = useAppStore((s) => s.viewRole);
+  const userRole = useAuthStore((s) => s.userRole);
 
   useEffect(() => {
     const timer = setTimeout(() => setIsLoading(false), 350);
@@ -45,9 +48,12 @@ export default function OverviewPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-semibold text-ink">Overview</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="text-2xl font-semibold text-ink">Overview</h1>
+          <Badge tone="info">You&apos;re viewing as {userRole === "CLIENT" ? "Client" : "Freelancer"}</Badge>
+        </div>
         <p className="mt-1 text-sm text-ink-secondary">
-          Viewing as {viewRole === "CLIENT" ? "client" : "freelancer"}
+          Demo view: {viewRole === "CLIENT" ? "client" : "freelancer"}
         </p>
       </div>
 
