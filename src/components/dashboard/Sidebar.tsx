@@ -1,12 +1,13 @@
 "use client";
 
-import { LayoutDashboard, Settings, Wallet } from "lucide-react";
+import { LayoutDashboard, LogOut, Settings, Wallet } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Logo } from "@/components/Logo";
 import { RoleSwitcher } from "@/components/dashboard/RoleSwitcher";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/lib/store";
+import { useAuthStore } from "@/store/auth.store";
 import { Avatar } from "@/components/ui/Avatar";
 
 const NAV_ITEMS = [
@@ -18,6 +19,7 @@ const NAV_ITEMS = [
 export function Sidebar() {
   const pathname = usePathname();
   const currentUser = useAppStore((s) => s.state.currentUser);
+  const logout = useAuthStore((s) => s.logout);
 
   return (
     <aside className="hidden w-64 shrink-0 flex-col border-r border-line bg-white lg:flex">
@@ -52,10 +54,19 @@ export function Sidebar() {
       <div className="border-t border-line p-4">
         <div className="flex items-center gap-3">
           <Avatar name={currentUser.name} color={currentUser.avatarColor} size={36} />
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium text-ink">{currentUser.name}</p>
             <p className="truncate text-xs text-ink-secondary">{currentUser.email}</p>
           </div>
+          <button
+            type="button"
+            onClick={logout}
+            aria-label="Log out"
+            title="Log out"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-ink-secondary hover:bg-surface hover:text-ink"
+          >
+            <LogOut className="h-4 w-4" aria-hidden="true" />
+          </button>
         </div>
       </div>
     </aside>

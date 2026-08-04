@@ -22,7 +22,7 @@ export function Nav() {
           ))}
         </ul>
         <div className="flex items-center gap-2">
-          <LinkButton href="/app" size="sm">
+          <LinkButton href="/app/login" size="sm">
             Open app
           </LinkButton>
         </div>

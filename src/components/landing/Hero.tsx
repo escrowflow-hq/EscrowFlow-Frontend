@@ -14,7 +14,7 @@ export function Hero() {
             back-and-forth, no wondering if you&apos;ll get paid.
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-3">
-            <LinkButton href="/app" size="lg">
+            <LinkButton href="/app/login" size="lg">
               Open app
             </LinkButton>
           </div>

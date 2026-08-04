@@ -11,7 +11,7 @@ describe("LandingPage", () => {
     expect(within(nav).getByRole("link", { name: /how it works/i })).toBeInTheDocument();
     expect(within(nav).getByRole("link", { name: /features/i })).toBeInTheDocument();
     expect(within(nav).getByRole("link", { name: /faq/i })).toBeInTheDocument();
-    expect(within(nav).getByRole("link", { name: /open app/i })).toHaveAttribute("href", "/app");
+    expect(within(nav).getByRole("link", { name: /open app/i })).toHaveAttribute("href", "/app/login");
   });
 
   it("renders the hero headline and CTAs", () => {
