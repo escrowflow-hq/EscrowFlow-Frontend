@@ -30,6 +30,7 @@ interface AuthStore {
   requestPasswordReset: (email: string) => Promise<void>;
   logout: () => void;
   clearError: () => void;
+  hydrate: () => void;
 }
 
 export const useAuthStore = create<AuthStore>()(
@@ -84,6 +85,9 @@ export const useAuthStore = create<AuthStore>()(
         }
       },
       clearError: () => set({ error: null }),
+      hydrate: () => {
+        void useAuthStore.persist.rehydrate();
+      },
     }),
     {
       name: "escrowflow-auth",
@@ -95,9 +99,13 @@ export const useAuthStore = create<AuthStore>()(
       onRehydrateStorage: () => () => {
         useAuthStore.setState({ hasHydrated: true });
       },
-      // Skip zustand's automatic hydration during SSR/static prerendering, where
-      // `window`/`localStorage` don't exist; the client bundle rehydrates on mount.
-      skipHydration: typeof window === "undefined",
+      // The server has no localStorage, so it always renders the "not hydrated yet"
+      // state. If the client rehydrated automatically at module-eval time (before
+      // React's first paint), its first render would already show the persisted
+      // auth state — mismatching the server's HTML and breaking hydration. Skipping
+      // auto-hydration and triggering it explicitly from an effect (see AuthGuard)
+      // keeps the client's first render identical to the server's.
+      skipHydration: true,
     }
   )
 );

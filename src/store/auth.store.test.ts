@@ -82,4 +82,31 @@ describe("useAuthStore", () => {
 
     expect(useAuthStore.getState().error).toMatch(/valid email/i);
   });
+
+  it("restores persisted auth state via hydrate(), simulating a fresh page load", async () => {
+    await useAuthStore.getState().login("alex@example.com", "password123");
+    const { token, user } = useAuthStore.getState();
+    const persistedSession = window.localStorage.getItem("escrowflow-auth");
+
+    // Wipe the in-memory state the way a fresh page load would start from the
+    // store's defaults. useAuthStore.setState() writes through to localStorage
+    // too (it's the same persist-wrapped `set`), so restore the previously
+    // persisted session afterwards — simulating localStorage still holding a
+    // valid session from before the "reload".
+    useAuthStore.setState({ isAuthenticated: false, token: null, user: null, hasHydrated: false });
+    if (persistedSession) window.localStorage.setItem("escrowflow-auth", persistedSession);
+    expect(useAuthStore.getState().isAuthenticated).toBe(false);
+
+    // hydrate() is fire-and-forget (matches how it's called from a useEffect),
+    // but internally always resolves via a microtask chain, even for
+    // synchronous storage like localStorage — so the test awaits the same
+    // underlying promise rather than the void-returning action.
+    await useAuthStore.persist.rehydrate();
+
+    const state = useAuthStore.getState();
+    expect(state.hasHydrated).toBe(true);
+    expect(state.isAuthenticated).toBe(true);
+    expect(state.token).toBe(token);
+    expect(state.user?.email).toBe(user?.email);
+  });
 });
