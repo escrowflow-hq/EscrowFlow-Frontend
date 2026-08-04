@@ -99,4 +99,22 @@ async function register(name: string, email: string, password: string): Promise<
   return res.json();
 }
 
-export const authService = { login, register };
+async function requestPasswordReset(email: string): Promise<void> {
+  assertEmail(email);
+
+  if (USE_MOCK) {
+    await delay(400);
+    return;
+  }
+
+  const res = await fetch(`${API_URL}/auth/forgot-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  if (!res.ok) {
+    throw new AuthError(await parseErrorMessage(res, "Could not send the reset email"));
+  }
+}
+
+export const authService = { login, register, requestPasswordReset };

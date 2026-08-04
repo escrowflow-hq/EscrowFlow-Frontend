@@ -68,4 +68,18 @@ describe("useAuthStore", () => {
     expect(state.token).toBeNull();
     expect(state.user).toBeNull();
   });
+
+  it("requests a password reset without authenticating", async () => {
+    await useAuthStore.getState().requestPasswordReset("alex@example.com");
+
+    const state = useAuthStore.getState();
+    expect(state.isAuthenticated).toBe(false);
+    expect(state.error).toBeNull();
+  });
+
+  it("sets an error when the reset email is invalid", async () => {
+    await expect(useAuthStore.getState().requestPasswordReset("not-an-email")).rejects.toThrow();
+
+    expect(useAuthStore.getState().error).toMatch(/valid email/i);
+  });
 });

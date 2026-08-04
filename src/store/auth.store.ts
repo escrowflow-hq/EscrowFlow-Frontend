@@ -27,6 +27,7 @@ interface AuthStore {
   hasHydrated: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
+  requestPasswordReset: (email: string) => Promise<void>;
   logout: () => void;
   clearError: () => void;
 }
@@ -58,6 +59,17 @@ export const useAuthStore = create<AuthStore>()(
           const { user, token } = await authService.register(name, email, password);
           setTokenCookie(token);
           set({ user, token, isAuthenticated: true, isLoading: false });
+        } catch (err) {
+          const message = err instanceof AuthError ? err.message : "Something went wrong. Try again.";
+          set({ isLoading: false, error: message });
+          throw err;
+        }
+      },
+      requestPasswordReset: async (email) => {
+        set({ isLoading: true, error: null });
+        try {
+          await authService.requestPasswordReset(email);
+          set({ isLoading: false });
         } catch (err) {
           const message = err instanceof AuthError ? err.message : "Something went wrong. Try again.";
           set({ isLoading: false, error: message });

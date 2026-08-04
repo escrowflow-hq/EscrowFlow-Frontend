@@ -41,3 +41,13 @@ describe("authService.register", () => {
     expect(result.token).toEqual(expect.any(String));
   });
 });
+
+describe("authService.requestPasswordReset", () => {
+  it("rejects an invalid email", async () => {
+    await expect(authService.requestPasswordReset("not-an-email")).rejects.toBeInstanceOf(AuthError);
+  });
+
+  it("resolves for a valid email", async () => {
+    await expect(authService.requestPasswordReset("alex@example.com")).resolves.toBeUndefined();
+  });
+});

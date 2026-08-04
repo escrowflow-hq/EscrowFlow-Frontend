@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const LOGGED_OUT_ONLY_ROUTES = ["/app/login", "/app/signup", "/app/register"];
-const PUBLIC_APP_ROUTES = [...LOGGED_OUT_ONLY_ROUTES, "/app/onboarding"];
+const PUBLIC_APP_ROUTES = [...LOGGED_OUT_ONLY_ROUTES, "/app/onboarding", "/app/forgot-password"];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

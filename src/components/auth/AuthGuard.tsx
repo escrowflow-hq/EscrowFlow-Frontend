@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
 import { useAuthStore } from "@/store/auth.store";
 
-const AUTH_ROUTES = ["/app/login", "/app/signup", "/app/register", "/app/onboarding"];
+const AUTH_ROUTES = ["/app/login", "/app/signup", "/app/register", "/app/onboarding", "/app/forgot-password"];
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
