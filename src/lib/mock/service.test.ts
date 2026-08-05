@@ -7,6 +7,7 @@ import {
   MockServiceError,
   submitMilestone,
 } from "@/lib/mock/service";
+import { projectsForRole } from "@/lib/store";
 import { releaseFee } from "@/lib/fees";
 
 function buildSingleMilestoneProject(amount: number) {
@@ -73,6 +74,46 @@ describe("approveMilestone", () => {
     const funded = fundEscrow(state, project.id);
 
     expect(() => approveMilestone(funded, project.id, milestone.id)).toThrow(MockServiceError);
+  });
+});
+
+describe("createProject", () => {
+  it("makes a client-created project visible in the freelancer's project list after switching roles", () => {
+    const state = createInitialState();
+    const withProject = createProject(state, {
+      title: "Website Redesign",
+      description: "New marketing site",
+      freelancerEmail: "freelancer@example.com",
+      milestones: [{ title: "Design", description: "Wireframes", amount: 500 }],
+    });
+    const project = withProject.projects[0]!;
+
+    expect(projectsForRole(withProject, "CLIENT")).toContainEqual(project);
+    expect(projectsForRole(withProject, "FREELANCER")).toContainEqual(project);
+  });
+
+  it("runs the full escrow flow: fund, submit, approve, and credit the wallet minus the platform fee", () => {
+    const state = createInitialState();
+    const withProject = createProject(state, {
+      title: "Website Redesign",
+      description: "New marketing site",
+      freelancerEmail: "freelancer@example.com",
+      milestones: [{ title: "Design", description: "Wireframes", amount: 500 }],
+    });
+    const project = withProject.projects[0]!;
+    const milestone = project.milestones[0]!;
+
+    const funded = fundEscrow(withProject, project.id);
+    expect(projectsForRole(funded, "FREELANCER")[0]!.status).toBe("ACTIVE");
+
+    const submitted = submitMilestone(funded, project.id, milestone.id, "Wireframes are ready");
+    const approved = approveMilestone(submitted, project.id, milestone.id);
+
+    const fee = releaseFee(500);
+    expect(approved.wallet.available).toBe(
+      Math.round((funded.wallet.available + (500 - fee)) * 100) / 100
+    );
+    expect(approved.projects[0]!.status).toBe("COMPLETED");
   });
 });
 

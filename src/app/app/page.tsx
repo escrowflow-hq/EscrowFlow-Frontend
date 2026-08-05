@@ -8,7 +8,7 @@ import { PaymentListItem } from "@/components/dashboard/PaymentListItem";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Badge } from "@/components/ui/Badge";
 import { LinkButton } from "@/components/ui/Button";
-import { useAppStore } from "@/lib/store";
+import { projectsForRole, useAppStore } from "@/lib/store";
 import { useAuthStore } from "@/store/auth.store";
 import { computeWalletSummary } from "@/lib/mock/service";
 
@@ -28,9 +28,7 @@ export default function OverviewPage() {
   }, []);
 
   const wallet = computeWalletSummary(state);
-  const projects = state.projects.filter((p) =>
-    viewRole === "CLIENT" ? p.clientId === state.currentUser.id : p.freelancerId === state.currentUser.id
-  );
+  const projects = projectsForRole(state, viewRole);
   const recentPayments = [...state.payments]
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, 5);
