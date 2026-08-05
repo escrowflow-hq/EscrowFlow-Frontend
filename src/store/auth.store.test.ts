@@ -94,6 +94,26 @@ describe("useAuthStore", () => {
     expect(state.userRole).toBe("CLIENT");
   });
 
+  it("logging back in as the same freelancer account restores userRole to FREELANCER", async () => {
+    await useAuthStore.getState().register("Jordan Freelancer", "jordan@example.com", "password123", "FREELANCER");
+    expect(useAuthStore.getState().userRole).toBe("FREELANCER");
+
+    vi.spyOn(window, "location", "get").mockReturnValue({ ...window.location, href: "" } as Location);
+    useAuthStore.getState().logout();
+    expect(useAuthStore.getState().userRole).toBe("CLIENT"); // reset to the pre-login default
+
+    await useAuthStore.getState().login("jordan@example.com", "password123", "FREELANCER");
+
+    const state = useAuthStore.getState();
+    expect(state.isAuthenticated).toBe(true);
+    expect(state.userRole).toBe("FREELANCER");
+    expect(state.user?.role).toBe("FREELANCER");
+    expect(typeof state.userRole).toBe("string");
+
+    const persisted = window.localStorage.getItem("escrowflow-auth");
+    expect(persisted).toContain("FREELANCER");
+  });
+
   it("requests a password reset without authenticating", async () => {
     await useAuthStore.getState().requestPasswordReset("alex@example.com");
 
