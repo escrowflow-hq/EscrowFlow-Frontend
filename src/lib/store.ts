@@ -39,7 +39,7 @@ interface AppStore {
   createProject: (input: CreateProjectInput) => void;
   sendMessage: (projectId: string, body: string) => void;
   uploadFile: (projectId: string, name: string, sizeKb: number) => void;
-  updateProfile: (updates: { name?: string; email?: string }) => void;
+  updateProfile: (updates: { name?: string }) => void;
   updateNotificationPreference: (key: string, value: boolean) => void;
 }
 

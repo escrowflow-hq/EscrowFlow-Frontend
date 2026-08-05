@@ -9,7 +9,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { LinkButton } from "@/components/ui/Button";
 import { projectsForRole, useAppStore } from "@/lib/store";
 import { useAuthStore } from "@/store/auth.store";
-import { computeWalletSummary } from "@/lib/mock/service";
+import { computeWalletSummary, paymentDirection } from "@/lib/mock/service";
 
 function SkeletonBlock({ className }: { className?: string }) {
   return <div className={`animate-pulse rounded-xl bg-line/60 ${className ?? ""}`} />;
@@ -112,7 +112,7 @@ export default function OverviewPage() {
         ) : (
           <div className="space-y-3">
             {recentPayments.map((payment) => (
-              <PaymentListItem key={payment.id} payment={payment} />
+              <PaymentListItem key={payment.id} payment={payment} direction={paymentDirection(payment, state)} />
             ))}
           </div>
         )}

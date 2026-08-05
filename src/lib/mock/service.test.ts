@@ -7,6 +7,7 @@ import {
   fundEscrow,
   getViewForUser,
   MockServiceError,
+  paymentDirection,
   submitMilestone,
   upsertUserForAuth,
 } from "@/lib/mock/service";
@@ -113,6 +114,47 @@ describe("shared mock backend", () => {
       expect(projectsForRole(getViewForUser(FREELANCER_EMAIL), "FREELANCER")).toContainEqual(project);
     });
 
+    it("rejects creation from a freelancer account", () => {
+      upsertUserForAuth(FREELANCER_EMAIL, "Test Freelancer", "FREELANCER");
+
+      expect(() =>
+        createProject(FREELANCER_EMAIL, {
+          title: "Should not work",
+          description: "Freelancers can't create projects",
+          freelancerEmail: "someone-else@example.com",
+          milestones: [{ title: "Design", description: "Wireframes", amount: 500 }],
+        })
+      ).toThrow(MockServiceError);
+    });
+
+    it("rejects inviting an existing client account as the freelancer", () => {
+      upsertUserForAuth(CLIENT_EMAIL, "Test Client", "CLIENT");
+      const otherClientEmail = "other-client@example.com";
+      upsertUserForAuth(otherClientEmail, "Other Client", "CLIENT");
+
+      expect(() =>
+        createProject(CLIENT_EMAIL, {
+          title: "Website Redesign",
+          description: "New marketing site",
+          freelancerEmail: otherClientEmail,
+          milestones: [{ title: "Design", description: "Wireframes", amount: 500 }],
+        })
+      ).toThrow(MockServiceError);
+    });
+
+    it("rejects inviting yourself as the freelancer", () => {
+      upsertUserForAuth(CLIENT_EMAIL, "Test Client", "CLIENT");
+
+      expect(() =>
+        createProject(CLIENT_EMAIL, {
+          title: "Website Redesign",
+          description: "New marketing site",
+          freelancerEmail: CLIENT_EMAIL,
+          milestones: [{ title: "Design", description: "Wireframes", amount: 500 }],
+        })
+      ).toThrow(MockServiceError);
+    });
+
     it("runs the full escrow flow: fund, submit, approve, and credit the freelancer's balance minus the platform fee", () => {
       upsertUserForAuth(CLIENT_EMAIL, "Test Client", "CLIENT");
       fundClientWallet(500);
@@ -169,6 +211,22 @@ describe("shared mock backend", () => {
       expect(() => submitMilestone(project.id, milestone.id, "Not my project", CLIENT_EMAIL)).toThrow(
         MockServiceError
       );
+    });
+  });
+
+  describe("paymentDirection", () => {
+    it("shows a milestone release as money in for the freelancer and money out for the client", () => {
+      const { project, milestone } = buildSingleMilestoneProject(500);
+      fundEscrow(project.id, CLIENT_EMAIL);
+      submitMilestone(project.id, milestone.id, "Done", FREELANCER_EMAIL);
+      approveMilestone(project.id, milestone.id, CLIENT_EMAIL);
+
+      const clientView = getViewForUser(CLIENT_EMAIL);
+      const freelancerView = getViewForUser(FREELANCER_EMAIL);
+      const releasePayment = clientView.payments.find((p) => p.type === "RELEASE")!;
+
+      expect(paymentDirection(releasePayment, clientView)).toBe("out");
+      expect(paymentDirection(releasePayment, freelancerView)).toBe("in");
     });
   });
 });

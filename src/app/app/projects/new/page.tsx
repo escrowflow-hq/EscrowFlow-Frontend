@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { formatUSD } from "@/lib/fees";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/lib/store";
+import { useAuthStore } from "@/store/auth.store";
 import {
   validateDetails,
   validateFreelancerEmail,
@@ -18,16 +19,34 @@ import {
 const STEPS = ["Details", "Freelancer", "Milestones", "Review"] as const;
 const NETWORK_FEE = 0.02;
 
+// Milestone rows need a stable identity distinct from their position in the
+// list — removing a row from the middle shouldn't cause React to reuse a
+// sibling's DOM node/focus for the wrong data.
+type MilestoneRow = WizardMilestoneDraft & { key: number };
+
 export default function NewProjectPage() {
   const router = useRouter();
   const createProject = useAppStore((s) => s.createProject);
+  const error = useAppStore((s) => s.error);
+  const clearError = useAppStore((s) => s.clearError);
+  const userRole = useAuthStore((s) => s.userRole);
+  const nextRowKey = useRef(1);
+
+  // Only clients can create projects — the entry point on the dashboard is
+  // already hidden for freelancers, but this route is still reachable
+  // directly by URL, so it needs its own guard too.
+  useEffect(() => {
+    if (userRole !== "CLIENT") {
+      router.replace("/app");
+    }
+  }, [userRole, router]);
 
   const [step, setStep] = useState(0);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [freelancerEmail, setFreelancerEmail] = useState("");
-  const [milestones, setMilestones] = useState<WizardMilestoneDraft[]>([
-    { title: "", description: "", amount: "" },
+  const [milestones, setMilestones] = useState<MilestoneRow[]>([
+    { title: "", description: "", amount: "", key: 0 },
   ]);
   const [touched, setTouched] = useState(false);
 
@@ -58,19 +77,20 @@ export default function NewProjectPage() {
 
   function back() {
     setTouched(false);
+    clearError();
     setStep((s) => Math.max(s - 1, 0));
   }
 
-  function updateMilestone(index: number, updates: Partial<WizardMilestoneDraft>) {
-    setMilestones((prev) => prev.map((m, i) => (i === index ? { ...m, ...updates } : m)));
+  function updateMilestone(key: number, updates: Partial<WizardMilestoneDraft>) {
+    setMilestones((prev) => prev.map((m) => (m.key === key ? { ...m, ...updates } : m)));
   }
 
   function addMilestone() {
-    setMilestones((prev) => [...prev, { title: "", description: "", amount: "" }]);
+    setMilestones((prev) => [...prev, { title: "", description: "", amount: "", key: nextRowKey.current++ }]);
   }
 
-  function removeMilestone(index: number) {
-    setMilestones((prev) => prev.filter((_, i) => i !== index));
+  function removeMilestone(key: number) {
+    setMilestones((prev) => prev.filter((m) => m.key !== key));
   }
 
   function handleCreate() {
@@ -84,7 +104,17 @@ export default function NewProjectPage() {
         amount: Math.round(Number(m.amount) * 100) / 100,
       })),
     });
-    router.push("/app");
+    // createProject swallows its own errors into the store's `error` field
+    // (see lib/store.ts's `run` helper) rather than throwing here, so check
+    // it synchronously before navigating away — otherwise a failure (e.g. an
+    // invalid freelancer email) would look like it succeeded.
+    if (!useAppStore.getState().error) {
+      router.push("/app");
+    }
+  }
+
+  if (userRole !== "CLIENT") {
+    return null;
   }
 
   return (
@@ -172,13 +202,13 @@ export default function NewProjectPage() {
         {step === 2 && (
           <div className="space-y-5">
             {milestones.map((milestone, index) => (
-              <div key={index} className="space-y-3 rounded-xl border border-line p-4">
+              <div key={milestone.key} className="space-y-3 rounded-xl border border-line p-4">
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-semibold text-ink">Milestone {index + 1}</p>
                   {milestones.length > 1 && (
                     <button
                       type="button"
-                      onClick={() => removeMilestone(index)}
+                      onClick={() => removeMilestone(milestone.key)}
                       aria-label={`Remove milestone ${index + 1}`}
                       className="text-ink-muted hover:text-danger"
                     >
@@ -187,13 +217,13 @@ export default function NewProjectPage() {
                   )}
                 </div>
                 <div>
-                  <label htmlFor={`m-title-${index}`} className="text-sm font-medium text-ink">
+                  <label htmlFor={`m-title-${milestone.key}`} className="text-sm font-medium text-ink">
                     Title
                   </label>
                   <input
-                    id={`m-title-${index}`}
+                    id={`m-title-${milestone.key}`}
                     value={milestone.title}
-                    onChange={(e) => updateMilestone(index, { title: e.target.value })}
+                    onChange={(e) => updateMilestone(milestone.key, { title: e.target.value })}
                     className="mt-1.5 w-full rounded-xl border border-line p-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                     placeholder="e.g. Homepage build"
                   />
@@ -202,29 +232,29 @@ export default function NewProjectPage() {
                   )}
                 </div>
                 <div>
-                  <label htmlFor={`m-desc-${index}`} className="text-sm font-medium text-ink">
+                  <label htmlFor={`m-desc-${milestone.key}`} className="text-sm font-medium text-ink">
                     Description
                   </label>
                   <textarea
-                    id={`m-desc-${index}`}
+                    id={`m-desc-${milestone.key}`}
                     value={milestone.description}
-                    onChange={(e) => updateMilestone(index, { description: e.target.value })}
+                    onChange={(e) => updateMilestone(milestone.key, { description: e.target.value })}
                     rows={2}
                     className="mt-1.5 w-full rounded-xl border border-line p-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                     placeholder="What's delivered in this milestone?"
                   />
                 </div>
                 <div>
-                  <label htmlFor={`m-amount-${index}`} className="text-sm font-medium text-ink">
+                  <label htmlFor={`m-amount-${milestone.key}`} className="text-sm font-medium text-ink">
                     Amount (USDC)
                   </label>
                   <input
-                    id={`m-amount-${index}`}
+                    id={`m-amount-${milestone.key}`}
                     type="number"
                     min="0"
                     step="0.01"
                     value={milestone.amount}
-                    onChange={(e) => updateMilestone(index, { amount: e.target.value })}
+                    onChange={(e) => updateMilestone(milestone.key, { amount: e.target.value })}
                     className="mt-1.5 w-full rounded-xl border border-line p-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                     placeholder="0.00"
                   />
@@ -250,7 +280,7 @@ export default function NewProjectPage() {
             </div>
             <ul className="divide-y divide-line rounded-xl border border-line">
               {milestones.map((m, index) => (
-                <li key={index} className="flex items-center justify-between p-3 text-sm">
+                <li key={m.key} className="flex items-center justify-between p-3 text-sm">
                   <span className="text-ink">{m.title || `Milestone ${index + 1}`}</span>
                   <span className="font-medium text-ink">{formatUSD(Number(m.amount) || 0)}</span>
                 </li>
@@ -277,6 +307,8 @@ export default function NewProjectPage() {
           </div>
         )}
       </div>
+
+      {step === STEPS.length - 1 && error && <p className="text-sm text-danger">{error}</p>}
 
       <div className="flex justify-between">
         <Button variant="ghost" onClick={back} disabled={step === 0}>

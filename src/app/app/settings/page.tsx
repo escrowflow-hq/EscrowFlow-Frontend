@@ -24,12 +24,11 @@ export default function SettingsPage() {
   const userRole = useAuthStore((s) => s.userRole);
 
   const [name, setName] = useState(currentUser.name);
-  const [email, setEmail] = useState(currentUser.email);
   const [saved, setSaved] = useState(false);
   const [copied, setCopied] = useState(false);
 
   function handleSave() {
-    updateProfile({ name, email });
+    updateProfile({ name });
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   }
@@ -81,10 +80,13 @@ export default function SettingsPage() {
             <input
               id="email"
               type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="mt-1.5 w-full rounded-xl border border-line p-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              value={currentUser.email}
+              disabled
+              className="mt-1.5 w-full cursor-not-allowed rounded-xl border border-line bg-surface p-3 text-sm text-ink-secondary"
             />
+            <p className="mt-1.5 text-xs text-ink-secondary">
+              Your email is your account identity and can&apos;t be changed here — contact support if you need to update it.
+            </p>
           </div>
           <div className="flex items-center gap-3">
             <Button onClick={handleSave}>Save changes</Button>

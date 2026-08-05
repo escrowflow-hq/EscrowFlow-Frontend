@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { cn } from "@/lib/utils";
 import { DEPOSIT_FEES, formatUSD, WITHDRAW_FEES } from "@/lib/fees";
-import { computeWalletSummary } from "@/lib/mock/service";
+import { computeWalletSummary, paymentDirection } from "@/lib/mock/service";
 import { useAppStore } from "@/lib/store";
 import { useAuthStore } from "@/store/auth.store";
 import type { DepositMethod, WithdrawDestination } from "@/lib/types";
@@ -212,7 +212,7 @@ export default function WalletPage() {
         ) : (
           <div className="space-y-3">
             {recentPayments.map((payment) => (
-              <PaymentListItem key={payment.id} payment={payment} />
+              <PaymentListItem key={payment.id} payment={payment} direction={paymentDirection(payment, state)} />
             ))}
           </div>
         )}

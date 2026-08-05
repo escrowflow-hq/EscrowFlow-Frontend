@@ -3,10 +3,8 @@ import { formatUSD } from "@/lib/fees";
 import { formatDate } from "@/lib/utils";
 import type { Payment } from "@/lib/types";
 
-const INBOUND: Payment["type"][] = ["RELEASE", "DEPOSIT"];
-
-export function PaymentListItem({ payment }: { payment: Payment }) {
-  const isInbound = INBOUND.includes(payment.type);
+export function PaymentListItem({ payment, direction }: { payment: Payment; direction: "in" | "out" }) {
+  const isInbound = direction === "in";
 
   return (
     <div className="flex items-center gap-3 rounded-xl border border-line bg-white p-4">

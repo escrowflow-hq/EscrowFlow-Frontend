@@ -268,6 +268,22 @@ export function computeWalletSummary(state: MockState): WalletState {
   };
 }
 
+/**
+ * RELEASE payments are visible to both sides of a project (see
+ * getViewForUser), but they mean opposite things to each — money leaving the
+ * client's escrow is money landing in the freelancer's balance. DEPOSIT/
+ * WITHDRAWAL are always scoped to the account that made them, so they're
+ * unambiguous.
+ */
+export function paymentDirection(payment: Payment, state: MockState): "in" | "out" {
+  if (payment.type === "WITHDRAWAL") return "out";
+  if (payment.type === "DEPOSIT" || payment.type === "REFUND") return "in";
+
+  const project = state.projects.find((p) => p.id === payment.projectId);
+  if (!project) return "in";
+  return project.freelancerEmail === state.currentUser.email ? "in" : "out";
+}
+
 export function submitMilestone(projectId: string, milestoneId: string, note: string, actingEmail: string): void {
   const project = findProject(projectId);
   requireFreelancer(project, actingEmail);
@@ -562,6 +578,17 @@ export interface CreateProjectInput {
 export function createProject(clientEmail: string, input: CreateProjectInput): Project {
   const client = findUserByEmail(clientEmail);
   if (!client) throw new MockServiceError("Account not found");
+  if (client.role !== "CLIENT") {
+    throw new MockServiceError("Only client accounts can create projects");
+  }
+  if (input.freelancerEmail === clientEmail) {
+    throw new MockServiceError("You can't invite yourself as the freelancer");
+  }
+
+  const existingInvitee = findUserByEmail(input.freelancerEmail);
+  if (existingInvitee && existingInvitee.role !== "FREELANCER") {
+    throw new MockServiceError("This email belongs to a client account and can't be invited as a freelancer");
+  }
 
   const derivedName = input.freelancerEmail.split("@")[0] || "Freelancer";
   const freelancer = ensureUser(
@@ -646,7 +673,10 @@ export function uploadFile(projectId: string, actingEmail: string, actingName: s
   emit();
 }
 
-export function updateProfile(actingEmail: string, updates: Partial<Pick<User, "name" | "email">>): void {
+// Email is the identity key everything else (projects, payments, messages) is
+// keyed by, so it's deliberately excluded here — changing it would orphan the
+// account instead of renaming it. Only display fields like name are mutable.
+export function updateProfile(actingEmail: string, updates: Partial<Pick<User, "name">>): void {
   shared.users = shared.users.map((u) => (u.email !== actingEmail ? u : { ...u, ...updates }));
   emit();
 }
