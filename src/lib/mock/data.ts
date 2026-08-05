@@ -5,31 +5,98 @@ import type {
   Project,
   ProjectFile,
   User,
-  WalletState,
 } from "@/lib/types";
 
-export const CURRENT_USER: User = {
-  id: "user-1",
-  name: "Alex Rivera",
-  email: "alex@escrowflow.dev",
-  role: "CLIENT",
-  kycStatus: "APPROVED",
-  walletAddress: "GBZX7Q3F4K6N2T8V9W1E5R0Y2U4I6O8P1A3S5D7F9G1H3J5K7L9M",
-  avatarColor: "#3B6DF5",
-  createdAt: "2025-11-02T09:00:00.000Z",
-  notificationPreferences: {
-    milestoneUpdates: true,
-    payments: true,
-    messages: true,
-    marketing: false,
+// Seed identities for the shared mock backend. Each demo email doubles as an
+// existing account — logging in or signing up with one of these addresses
+// resumes that seeded identity (and its role) rather than creating a new one.
+export const SEED_USERS: User[] = [
+  {
+    id: "user-1",
+    name: "Alex Rivera",
+    email: "alex@escrowflow.dev",
+    role: "CLIENT",
+    kycStatus: "APPROVED",
+    walletAddress: "GBZX7Q3F4K6N2T8V9W1E5R0Y2U4I6O8P1A3S5D7F9G1H3J5K7L9M",
+    walletAvailable: 1840.5,
+    avatarColor: "#3B6DF5",
+    createdAt: "2025-11-02T09:00:00.000Z",
+    notificationPreferences: {
+      milestoneUpdates: true,
+      payments: true,
+      messages: true,
+      marketing: false,
+    },
   },
-};
-
-export const INITIAL_WALLET: WalletState = {
-  available: 1840.5,
-  pendingEarnings: 0,
-  inEscrow: 0,
-};
+  {
+    id: "user-2",
+    name: "Priya Nair",
+    email: "priya@example.com",
+    role: "FREELANCER",
+    kycStatus: "APPROVED",
+    walletAddress: "GDPR8Q3F4K6N2T8V9W1E5R0Y2U4I6O8P1A3S5D7F9G1H3J5K7L9N",
+    walletAvailable: 2425,
+    avatarColor: "#16A34A",
+    createdAt: "2025-12-10T09:00:00.000Z",
+    notificationPreferences: {
+      milestoneUpdates: true,
+      payments: true,
+      messages: true,
+      marketing: false,
+    },
+  },
+  {
+    id: "user-3",
+    name: "Sam Okafor",
+    email: "sam@example.com",
+    role: "FREELANCER",
+    kycStatus: "APPROVED",
+    walletAddress: "GSAM8Q3F4K6N2T8V9W1E5R0Y2U4I6O8P1A3S5D7F9G1H3J5K7L9O",
+    walletAvailable: 873,
+    avatarColor: "#F59E0B",
+    createdAt: "2026-01-15T09:00:00.000Z",
+    notificationPreferences: {
+      milestoneUpdates: true,
+      payments: true,
+      messages: true,
+      marketing: false,
+    },
+  },
+  {
+    id: "user-4",
+    name: "Nina Petrova",
+    email: "nina@example.com",
+    role: "CLIENT",
+    kycStatus: "APPROVED",
+    walletAddress: "GNIN8Q3F4K6N2T8V9W1E5R0Y2U4I6O8P1A3S5D7F9G1H3J5K7L9P",
+    walletAvailable: 500,
+    avatarColor: "#DB2777",
+    createdAt: "2026-02-01T09:00:00.000Z",
+    notificationPreferences: {
+      milestoneUpdates: true,
+      payments: true,
+      messages: true,
+      marketing: false,
+    },
+  },
+  {
+    id: "user-5",
+    name: "Marcus Chen",
+    email: "marcus@example.com",
+    role: "CLIENT",
+    kycStatus: "APPROVED",
+    walletAddress: "GMAR8Q3F4K6N2T8V9W1E5R0Y2U4I6O8P1A3S5D7F9G1H3J5K7L9Q",
+    walletAvailable: 250,
+    avatarColor: "#7C3AED",
+    createdAt: "2025-09-20T09:00:00.000Z",
+    notificationPreferences: {
+      milestoneUpdates: true,
+      payments: true,
+      messages: true,
+      marketing: false,
+    },
+  },
+];
 
 export const INITIAL_PROJECTS: Project[] = [
   {
@@ -39,6 +106,7 @@ export const INITIAL_PROJECTS: Project[] = [
       "Full redesign of the marketing site including new component library, copywriting pass, and responsive layouts.",
     clientId: "user-1",
     clientName: "Alex Rivera",
+    clientEmail: "alex@escrowflow.dev",
     freelancerId: "user-2",
     freelancerName: "Priya Nair",
     freelancerEmail: "priya@example.com",
@@ -88,6 +156,7 @@ export const INITIAL_PROJECTS: Project[] = [
     description: "Custom icon set (48 icons) for the mobile app, two style rounds included.",
     clientId: "user-1",
     clientName: "Alex Rivera",
+    clientEmail: "alex@escrowflow.dev",
     freelancerId: "user-3",
     freelancerName: "Sam Okafor",
     freelancerEmail: "sam@example.com",
@@ -123,9 +192,10 @@ export const INITIAL_PROJECTS: Project[] = [
     description: "Integrate payments provider and build webhook handling for order events.",
     clientId: "user-4",
     clientName: "Nina Petrova",
-    freelancerId: "user-1",
-    freelancerName: "Alex Rivera",
-    freelancerEmail: "alex@escrowflow.dev",
+    clientEmail: "nina@example.com",
+    freelancerId: "user-2",
+    freelancerName: "Priya Nair",
+    freelancerEmail: "priya@example.com",
     status: "DISPUTED",
     budget: 3000,
     escrowFunded: true,
@@ -173,9 +243,10 @@ export const INITIAL_PROJECTS: Project[] = [
     description: "Primary logo, wordmark, color system, and a one-page brand guide.",
     clientId: "user-5",
     clientName: "Marcus Chen",
-    freelancerId: "user-1",
-    freelancerName: "Alex Rivera",
-    freelancerEmail: "alex@escrowflow.dev",
+    clientEmail: "marcus@example.com",
+    freelancerId: "user-3",
+    freelancerName: "Sam Okafor",
+    freelancerEmail: "sam@example.com",
     status: "COMPLETED",
     budget: 900,
     escrowFunded: true,
@@ -231,7 +302,7 @@ export const INITIAL_PAYMENTS: Payment[] = [
     fee: 30,
     status: "COMPLETED",
     createdAt: "2026-07-13T10:00:00.000Z",
-    counterparty: "Nina Petrova",
+    counterparty: "Priya Nair",
   },
   {
     id: "pay-3",
@@ -242,7 +313,7 @@ export const INITIAL_PAYMENTS: Payment[] = [
     fee: 12,
     status: "COMPLETED",
     createdAt: "2026-05-09T09:00:00.000Z",
-    counterparty: "Marcus Chen",
+    counterparty: "Sam Okafor",
   },
   {
     id: "pay-4",
@@ -253,7 +324,7 @@ export const INITIAL_PAYMENTS: Payment[] = [
     fee: 15,
     status: "COMPLETED",
     createdAt: "2026-05-19T09:00:00.000Z",
-    counterparty: "Marcus Chen",
+    counterparty: "Sam Okafor",
   },
 ];
 
@@ -297,8 +368,8 @@ export const INITIAL_DISPUTES: Dispute[] = [
     id: "dispute-1",
     projectId: "proj-3",
     milestoneId: "m-3-2",
-    initiatorId: "user-1",
-    initiatorName: "Alex Rivera",
+    initiatorId: "user-2",
+    initiatorName: "Priya Nair",
     reason:
       "The client rejected this milestone citing duplicate webhook events, but all edge cases have been fixed per the updated sequence diagram shared in Messages. Escalating for arbitration.",
     createdAt: "2026-07-28T10:00:00.000Z",
@@ -329,7 +400,7 @@ export const INITIAL_FILES: ProjectFile[] = [
     projectId: "proj-3",
     name: "webhook-sequence-diagram.png",
     sizeKb: 540,
-    uploadedBy: "Alex Rivera",
+    uploadedBy: "Priya Nair",
     uploadedAt: "2026-07-12T09:30:00.000Z",
   },
 ];

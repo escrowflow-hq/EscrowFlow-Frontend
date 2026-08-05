@@ -1,140 +1,174 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import {
+  __resetMockBackend,
   approveMilestone,
-  createInitialState,
   createProject,
+  deposit,
   fundEscrow,
+  getViewForUser,
   MockServiceError,
   submitMilestone,
+  upsertUserForAuth,
 } from "@/lib/mock/service";
 import { projectsForRole } from "@/lib/store";
 import { releaseFee } from "@/lib/fees";
 
-function buildSingleMilestoneProject(amount: number) {
-  const state = createInitialState();
-  const withProject = createProject(state, {
-    title: "Test project",
-    description: "A project used for service tests",
-    freelancerEmail: "freelancer@example.com",
-    milestones: [{ title: "Only milestone", description: "The only deliverable", amount }],
-  });
-  const project = withProject.projects[0]!;
-  const milestone = project.milestones[0]!;
-  return { state: withProject, project, milestone };
+const CLIENT_EMAIL = "client@example.com";
+const FREELANCER_EMAIL = "freelancer@example.com";
+
+function fundClientWallet(amount: number) {
+  deposit(CLIENT_EMAIL, amount, "USDC");
 }
 
-describe("approveMilestone", () => {
-  it("releases funds minus the platform fee and completes the project when all milestones are released", () => {
-    const amount = 1000;
-    const { state, project, milestone } = buildSingleMilestoneProject(amount);
+function buildSingleMilestoneProject(amount: number) {
+  upsertUserForAuth(CLIENT_EMAIL, "Test Client", "CLIENT");
+  fundClientWallet(amount);
+  const project = createProject(CLIENT_EMAIL, {
+    title: "Test project",
+    description: "A project used for service tests",
+    freelancerEmail: FREELANCER_EMAIL,
+    milestones: [{ title: "Only milestone", description: "The only deliverable", amount }],
+  });
+  return { project, milestone: project.milestones[0]! };
+}
 
-    const funded = fundEscrow(state, project.id);
-    const submitted = submitMilestone(funded, project.id, milestone.id, "Delivered the work");
-    const approved = approveMilestone(submitted, project.id, milestone.id);
-
-    const fee = releaseFee(amount);
-    const updatedProject = approved.projects[0]!;
-    const updatedMilestone = updatedProject.milestones[0]!;
-
-    expect(updatedMilestone.status).toBe("RELEASED");
-    expect(updatedProject.status).toBe("COMPLETED");
-    expect(updatedProject.escrowBalance).toBe(0);
-
-    const payment = approved.payments[0]!;
-    expect(payment.type).toBe("RELEASE");
-    expect(payment.fee).toBe(fee);
-    expect(payment.amount).toBe(Math.round((amount - fee) * 100) / 100);
+describe("shared mock backend", () => {
+  beforeEach(() => {
+    __resetMockBackend();
   });
 
-  it("does not complete the project while other milestones remain unreleased", () => {
-    const state = createInitialState();
-    const withProject = createProject(state, {
-      title: "Multi-milestone project",
-      description: "Has two milestones",
-      freelancerEmail: "freelancer@example.com",
-      milestones: [
-        { title: "First", description: "First milestone", amount: 400 },
-        { title: "Second", description: "Second milestone", amount: 600 },
-      ],
+  describe("approveMilestone", () => {
+    it("releases funds minus the platform fee and completes the project when all milestones are released", () => {
+      const amount = 1000;
+      const { project, milestone } = buildSingleMilestoneProject(amount);
+
+      fundEscrow(project.id, CLIENT_EMAIL);
+      submitMilestone(project.id, milestone.id, "Delivered the work", FREELANCER_EMAIL);
+      approveMilestone(project.id, milestone.id, CLIENT_EMAIL);
+
+      const clientView = getViewForUser(CLIENT_EMAIL);
+      const updatedProject = clientView.projects.find((p) => p.id === project.id)!;
+      const updatedMilestone = updatedProject.milestones[0]!;
+
+      const fee = releaseFee(amount);
+      expect(updatedMilestone.status).toBe("RELEASED");
+      expect(updatedProject.status).toBe("COMPLETED");
+      expect(updatedProject.escrowBalance).toBe(0);
+
+      const payment = clientView.payments.find((p) => p.type === "RELEASE")!;
+      expect(payment.fee).toBe(fee);
+      expect(payment.amount).toBe(Math.round((amount - fee) * 100) / 100);
     });
-    const project = withProject.projects[0]!;
-    const first = project.milestones[0]!;
 
-    const funded = fundEscrow(withProject, project.id);
-    const submitted = submitMilestone(funded, project.id, first.id, "First half done");
-    const approved = approveMilestone(submitted, project.id, first.id);
-    const approvedProject = approved.projects[0]!;
+    it("does not complete the project while other milestones remain unreleased", () => {
+      upsertUserForAuth(CLIENT_EMAIL, "Test Client", "CLIENT");
+      fundClientWallet(1000);
+      const project = createProject(CLIENT_EMAIL, {
+        title: "Multi-milestone project",
+        description: "Has two milestones",
+        freelancerEmail: FREELANCER_EMAIL,
+        milestones: [
+          { title: "First", description: "First milestone", amount: 400 },
+          { title: "Second", description: "Second milestone", amount: 600 },
+        ],
+      });
+      const first = project.milestones[0]!;
 
-    expect(approvedProject.status).not.toBe("COMPLETED");
-    expect(approvedProject.status).toBe("ACTIVE");
-  });
+      fundEscrow(project.id, CLIENT_EMAIL);
+      submitMilestone(project.id, first.id, "First half done", FREELANCER_EMAIL);
+      approveMilestone(project.id, first.id, CLIENT_EMAIL);
 
-  it("throws when approving a milestone that has not been submitted", () => {
-    const { state, project, milestone } = buildSingleMilestoneProject(200);
-    const funded = fundEscrow(state, project.id);
-
-    expect(() => approveMilestone(funded, project.id, milestone.id)).toThrow(MockServiceError);
-  });
-});
-
-describe("createProject", () => {
-  it("makes a client-created project visible in the freelancer's project list after switching roles", () => {
-    const state = createInitialState();
-    const withProject = createProject(state, {
-      title: "Website Redesign",
-      description: "New marketing site",
-      freelancerEmail: "freelancer@example.com",
-      milestones: [{ title: "Design", description: "Wireframes", amount: 500 }],
+      const approvedProject = getViewForUser(CLIENT_EMAIL).projects.find((p) => p.id === project.id)!;
+      expect(approvedProject.status).not.toBe("COMPLETED");
+      expect(approvedProject.status).toBe("ACTIVE");
     });
-    const project = withProject.projects[0]!;
 
-    expect(projectsForRole(withProject, "CLIENT")).toContainEqual(project);
-    expect(projectsForRole(withProject, "FREELANCER")).toContainEqual(project);
-  });
+    it("throws when approving a milestone that has not been submitted", () => {
+      const { project, milestone } = buildSingleMilestoneProject(200);
+      fundEscrow(project.id, CLIENT_EMAIL);
 
-  it("runs the full escrow flow: fund, submit, approve, and credit the wallet minus the platform fee", () => {
-    const state = createInitialState();
-    const withProject = createProject(state, {
-      title: "Website Redesign",
-      description: "New marketing site",
-      freelancerEmail: "freelancer@example.com",
-      milestones: [{ title: "Design", description: "Wireframes", amount: 500 }],
+      expect(() => approveMilestone(project.id, milestone.id, CLIENT_EMAIL)).toThrow(MockServiceError);
     });
-    const project = withProject.projects[0]!;
-    const milestone = project.milestones[0]!;
 
-    const funded = fundEscrow(withProject, project.id);
-    expect(projectsForRole(funded, "FREELANCER")[0]!.status).toBe("ACTIVE");
+    it("rejects approval attempts from someone other than the project's client", () => {
+      const { project, milestone } = buildSingleMilestoneProject(300);
+      fundEscrow(project.id, CLIENT_EMAIL);
+      submitMilestone(project.id, milestone.id, "Done", FREELANCER_EMAIL);
 
-    const submitted = submitMilestone(funded, project.id, milestone.id, "Wireframes are ready");
-    const approved = approveMilestone(submitted, project.id, milestone.id);
-
-    const fee = releaseFee(500);
-    expect(approved.wallet.available).toBe(
-      Math.round((funded.wallet.available + (500 - fee)) * 100) / 100
-    );
-    expect(approved.projects[0]!.status).toBe("COMPLETED");
-  });
-});
-
-describe("submitMilestone", () => {
-  it("is blocked when the project's escrow has not been funded", () => {
-    const { state, project, milestone } = buildSingleMilestoneProject(500);
-
-    expect(project.escrowFunded).toBe(false);
-    expect(() => submitMilestone(state, project.id, milestone.id, "Trying to submit early")).toThrow(
-      MockServiceError
-    );
-    expect(() => submitMilestone(state, project.id, milestone.id, "Trying to submit early")).toThrow(
-      /escrow/i
-    );
+      expect(() => approveMilestone(project.id, milestone.id, FREELANCER_EMAIL)).toThrow(MockServiceError);
+    });
   });
 
-  it("succeeds once escrow is funded", () => {
-    const { state, project, milestone } = buildSingleMilestoneProject(500);
-    const funded = fundEscrow(state, project.id);
+  describe("createProject", () => {
+    it("makes a client-created project visible in the freelancer's own project list immediately", () => {
+      upsertUserForAuth(CLIENT_EMAIL, "Test Client", "CLIENT");
+      const project = createProject(CLIENT_EMAIL, {
+        title: "Website Redesign",
+        description: "New marketing site",
+        freelancerEmail: FREELANCER_EMAIL,
+        milestones: [{ title: "Design", description: "Wireframes", amount: 500 }],
+      });
 
-    const submitted = submitMilestone(funded, project.id, milestone.id, "Ready for review");
-    expect(submitted.projects[0]!.milestones[0]!.status).toBe("SUBMITTED");
+      expect(projectsForRole(getViewForUser(CLIENT_EMAIL), "CLIENT")).toContainEqual(project);
+      expect(projectsForRole(getViewForUser(FREELANCER_EMAIL), "FREELANCER")).toContainEqual(project);
+    });
+
+    it("runs the full escrow flow: fund, submit, approve, and credit the freelancer's balance minus the platform fee", () => {
+      upsertUserForAuth(CLIENT_EMAIL, "Test Client", "CLIENT");
+      fundClientWallet(500);
+      const project = createProject(CLIENT_EMAIL, {
+        title: "Website Redesign",
+        description: "New marketing site",
+        freelancerEmail: FREELANCER_EMAIL,
+        milestones: [{ title: "Design", description: "Wireframes", amount: 500 }],
+      });
+      const milestone = project.milestones[0]!;
+      const freelancerBefore = getViewForUser(FREELANCER_EMAIL).currentUser.walletAvailable;
+
+      fundEscrow(project.id, CLIENT_EMAIL);
+      expect(getViewForUser(FREELANCER_EMAIL).projects.find((p) => p.id === project.id)!.status).toBe("ACTIVE");
+
+      submitMilestone(project.id, milestone.id, "Wireframes are ready", FREELANCER_EMAIL);
+      approveMilestone(project.id, milestone.id, CLIENT_EMAIL);
+
+      const fee = releaseFee(500);
+      const freelancerAfter = getViewForUser(FREELANCER_EMAIL).currentUser.walletAvailable;
+      expect(freelancerAfter).toBe(Math.round((freelancerBefore + (500 - fee)) * 100) / 100);
+      expect(getViewForUser(CLIENT_EMAIL).projects.find((p) => p.id === project.id)!.status).toBe("COMPLETED");
+    });
+  });
+
+  describe("submitMilestone", () => {
+    it("is blocked when the project's escrow has not been funded", () => {
+      const { project, milestone } = buildSingleMilestoneProject(500);
+
+      expect(project.escrowFunded).toBe(false);
+      expect(() => submitMilestone(project.id, milestone.id, "Trying to submit early", FREELANCER_EMAIL)).toThrow(
+        MockServiceError
+      );
+      expect(() => submitMilestone(project.id, milestone.id, "Trying to submit early", FREELANCER_EMAIL)).toThrow(
+        /escrow/i
+      );
+    });
+
+    it("succeeds once escrow is funded", () => {
+      const { project, milestone } = buildSingleMilestoneProject(500);
+      fundEscrow(project.id, CLIENT_EMAIL);
+
+      submitMilestone(project.id, milestone.id, "Ready for review", FREELANCER_EMAIL);
+      const submittedMilestone = getViewForUser(FREELANCER_EMAIL)
+        .projects.find((p) => p.id === project.id)!
+        .milestones.find((m) => m.id === milestone.id)!;
+      expect(submittedMilestone.status).toBe("SUBMITTED");
+    });
+
+    it("rejects submissions from someone other than the project's freelancer", () => {
+      const { project, milestone } = buildSingleMilestoneProject(500);
+      fundEscrow(project.id, CLIENT_EMAIL);
+
+      expect(() => submitMilestone(project.id, milestone.id, "Not my project", CLIENT_EMAIL)).toThrow(
+        MockServiceError
+      );
+    });
   });
 });

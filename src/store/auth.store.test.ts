@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useAuthStore } from "@/store/auth.store";
+import { __resetMockBackend } from "@/lib/mock/service";
 
 const INITIAL_STATE = useAuthStore.getState();
 
@@ -10,6 +11,10 @@ function resetStore() {
   );
   window.localStorage.clear();
   document.cookie = "token=; path=/; max-age=0";
+  // The mock auth service resolves identities through the shared mock
+  // backend, which persists by email independent of this store — reset it
+  // too so re-registering the same address in a later test starts fresh.
+  __resetMockBackend();
 }
 
 describe("useAuthStore", () => {

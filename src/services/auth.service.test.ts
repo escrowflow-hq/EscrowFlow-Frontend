@@ -1,5 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { authService, AuthError } from "@/services/auth.service";
+import { __resetMockBackend } from "@/lib/mock/service";
+
+beforeEach(() => {
+  // authService resolves identities through the shared mock backend, which
+  // persists by email — reset it so tests reusing the same address don't see
+  // an account left over from an earlier test.
+  __resetMockBackend();
+});
 
 describe("authService.login", () => {
   it("rejects an invalid email", async () => {

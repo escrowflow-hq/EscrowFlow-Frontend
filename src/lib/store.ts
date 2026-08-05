@@ -4,23 +4,25 @@ import { create } from "zustand";
 import type { DepositMethod, DisputeOutcome, UserRole, WithdrawDestination } from "@/lib/types";
 import {
   approveMilestone,
-  createInitialState,
   createProject,
   CreateProjectInput,
   deposit,
   fundEscrow,
+  getViewForUser,
   MockServiceError,
   MockState,
   openDispute,
   requestChanges,
   resolveDispute,
   sendMessage,
+  subscribeToBackend,
   submitMilestone,
   updateNotificationPreference,
   updateProfile,
   uploadFile,
   withdraw,
 } from "@/lib/mock/service";
+import { useAuthStore } from "@/store/auth.store";
 
 interface AppStore {
   state: MockState;
@@ -41,10 +43,17 @@ interface AppStore {
   updateNotificationPreference: (key: string, value: boolean) => void;
 }
 
-function run(fn: () => MockState, set: (partial: Partial<AppStore>) => void, get: () => AppStore) {
+// The shared mock backend (lib/mock/service.ts) doesn't know who's "logged
+// in" — every mutation is keyed to an explicit email. This store just
+// resolves that email from the authenticated session on each call.
+function currentEmail(): string {
+  return useAuthStore.getState().user?.email ?? "";
+}
+
+function run(fn: () => void, set: (partial: Partial<AppStore>) => void) {
   try {
-    const nextState = fn();
-    set({ state: nextState, error: null });
+    fn();
+    set({ state: getViewForUser(currentEmail()), error: null });
   } catch (err) {
     if (err instanceof MockServiceError) {
       set({ error: err.message });
@@ -54,37 +63,52 @@ function run(fn: () => MockState, set: (partial: Partial<AppStore>) => void, get
   }
 }
 
-export const useAppStore = create<AppStore>((set, get) => ({
-  state: createInitialState(),
-  error: null,
-  clearError: () => set({ error: null }),
-  approveMilestone: (projectId, milestoneId) =>
-    run(() => approveMilestone(get().state, projectId, milestoneId), set, get),
-  requestChanges: (projectId, milestoneId, reason) =>
-    run(() => requestChanges(get().state, projectId, milestoneId, reason), set, get),
-  submitMilestone: (projectId, milestoneId, note) =>
-    run(() => submitMilestone(get().state, projectId, milestoneId, note), set, get),
-  openDispute: (escrowId, milestoneId, initiator, reason) =>
-    run(() => openDispute(get().state, escrowId, milestoneId, initiator, reason), set, get),
-  resolveDispute: (escrowId, milestoneId, outcome, split) =>
-    run(() => resolveDispute(get().state, escrowId, milestoneId, outcome, split), set, get),
-  fundEscrow: (projectId) => run(() => fundEscrow(get().state, projectId), set, get),
-  withdraw: (amount, destination) => run(() => withdraw(get().state, amount, destination), set, get),
-  deposit: (amount, method) => run(() => deposit(get().state, amount, method), set, get),
-  createProject: (input) => run(() => createProject(get().state, input), set, get),
-  sendMessage: (projectId, body) => run(() => sendMessage(get().state, projectId, body), set, get),
-  uploadFile: (projectId, name, sizeKb) => run(() => uploadFile(get().state, projectId, name, sizeKb), set, get),
-  updateProfile: (updates) => run(() => updateProfile(get().state, updates), set, get),
-  updateNotificationPreference: (key, value) =>
-    run(
-      () => updateNotificationPreference(get().state, key as never, value),
-      set,
-      get
-    ),
-}));
+export const useAppStore = create<AppStore>((set, get) => {
+  if (typeof window !== "undefined") {
+    // Refreshes this identity's view whenever the shared backend changes —
+    // including changes written by another browser tab (see the "storage"
+    // listener in mock/service.ts) — so updates show up without a reload.
+    subscribeToBackend(() => set({ state: getViewForUser(currentEmail()) }));
+    useAuthStore.subscribe((authState, prevAuthState) => {
+      if (authState.user?.email !== prevAuthState.user?.email) {
+        set({ state: getViewForUser(currentEmail()) });
+      }
+    });
+  }
+
+  return {
+    state: getViewForUser(currentEmail()),
+    error: null,
+    clearError: () => set({ error: null }),
+    approveMilestone: (projectId, milestoneId) =>
+      run(() => approveMilestone(projectId, milestoneId, currentEmail()), set),
+    requestChanges: (projectId, milestoneId, reason) =>
+      run(() => requestChanges(projectId, milestoneId, reason, currentEmail()), set),
+    submitMilestone: (projectId, milestoneId, note) =>
+      run(() => submitMilestone(projectId, milestoneId, note, currentEmail()), set),
+    openDispute: (escrowId, milestoneId, initiator, reason) =>
+      run(() => openDispute(escrowId, milestoneId, currentEmail(), initiator, reason), set),
+    resolveDispute: (escrowId, milestoneId, outcome, split) =>
+      run(() => resolveDispute(escrowId, milestoneId, outcome, split), set),
+    fundEscrow: (projectId) => run(() => fundEscrow(projectId, currentEmail()), set),
+    withdraw: (amount, destination) => run(() => withdraw(currentEmail(), amount, destination), set),
+    deposit: (amount, method) => run(() => deposit(currentEmail(), amount, method), set),
+    createProject: (input) =>
+      run(() => {
+        createProject(currentEmail(), input);
+      }, set),
+    sendMessage: (projectId, body) =>
+      run(() => sendMessage(projectId, currentEmail(), get().state.currentUser.name, body), set),
+    uploadFile: (projectId, name, sizeKb) =>
+      run(() => uploadFile(projectId, currentEmail(), get().state.currentUser.name, name, sizeKb), set),
+    updateProfile: (updates) => run(() => updateProfile(currentEmail(), updates), set),
+    updateNotificationPreference: (key, value) =>
+      run(() => updateNotificationPreference(currentEmail(), key as never, value), set),
+  };
+});
 
 export function projectsForRole(state: MockState, role: UserRole) {
   return state.projects.filter((p) =>
-    role === "CLIENT" ? p.clientId === state.currentUser.id : p.freelancerId === state.currentUser.id
+    role === "CLIENT" ? p.clientEmail === state.currentUser.email : p.freelancerEmail === state.currentUser.email
   );
 }

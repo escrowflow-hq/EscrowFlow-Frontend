@@ -35,6 +35,7 @@ export interface User {
   role: UserRole;
   kycStatus: KycStatus;
   walletAddress: string;
+  walletAvailable: number;
   avatarColor: string;
   createdAt: string;
   notificationPreferences: {
@@ -82,6 +83,7 @@ export interface Project {
   description: string;
   clientId: string;
   clientName: string;
+  clientEmail: string;
   freelancerId: string;
   freelancerName: string;
   freelancerEmail: string;
@@ -103,6 +105,29 @@ export interface Payment {
   status: PaymentStatus;
   createdAt: string;
   counterparty: string;
+  // Set for DEPOSIT/WITHDRAWAL, which aren't tied to a project — used to scope
+  // these personal ledger entries to the account that made them.
+  userEmail?: string;
+}
+
+export type NotificationType =
+  | "PROJECT_CREATED"
+  | "ESCROW_FUNDED"
+  | "MILESTONE_SUBMITTED"
+  | "MILESTONE_APPROVED"
+  | "MILESTONE_REJECTED"
+  | "DISPUTE_OPENED"
+  | "DISPUTE_RESOLVED";
+
+export interface Notification {
+  id: string;
+  userEmail: string;
+  projectId?: string;
+  type: NotificationType;
+  title: string;
+  body: string;
+  createdAt: string;
+  read: boolean;
 }
 
 export interface Message {

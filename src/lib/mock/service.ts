@@ -3,27 +3,31 @@ import type {
   Dispute,
   DisputeOutcome,
   Message,
+  Notification,
+  NotificationType,
   Payment,
   Project,
   ProjectFile,
   User,
+  UserRole,
   WalletState,
   WithdrawDestination,
 } from "@/lib/types";
 import {
-  CURRENT_USER,
   INITIAL_DISPUTES,
   INITIAL_FILES,
   INITIAL_MESSAGES,
   INITIAL_PAYMENTS,
   INITIAL_PROJECTS,
-  INITIAL_WALLET,
+  SEED_USERS,
 } from "@/lib/mock/data";
 import { DEPOSIT_FEES, releaseFee, WITHDRAW_FEES } from "@/lib/fees";
 
+export class MockServiceError extends Error {}
+
+/** Per-identity read model handed to the UI — a scoped view over the shared backend below. */
 export interface MockState {
   currentUser: User;
-  wallet: WalletState;
   projects: Project[];
   payments: Payment[];
   messages: Message[];
@@ -31,55 +35,242 @@ export interface MockState {
   disputes: Dispute[];
 }
 
-export class MockServiceError extends Error {}
+interface SharedMockState {
+  users: User[];
+  projects: Project[];
+  payments: Payment[];
+  messages: Message[];
+  files: ProjectFile[];
+  disputes: Dispute[];
+  notifications: Notification[];
+}
 
-export function createInitialState(): MockState {
+const STORAGE_KEY = "escrowflow-mock-backend";
+const AVATAR_COLORS = ["#3B6DF5", "#16A34A", "#F59E0B", "#DB2777", "#7C3AED", "#0EA5E9"];
+
+function seedState(): SharedMockState {
   return {
-    currentUser: CURRENT_USER,
-    wallet: { ...INITIAL_WALLET },
+    users: SEED_USERS.map((u) => ({ ...u })),
     projects: INITIAL_PROJECTS.map((p) => ({ ...p, milestones: p.milestones.map((m) => ({ ...m })) })),
     payments: [...INITIAL_PAYMENTS],
     messages: [...INITIAL_MESSAGES],
     files: [...INITIAL_FILES],
     disputes: INITIAL_DISPUTES.map((d) => ({ ...d })),
+    notifications: [],
   };
 }
 
-function findProject(state: MockState, projectId: string): Project {
-  const project = state.projects.find((p) => p.id === projectId);
+function loadState(): SharedMockState {
+  if (typeof window === "undefined") return seedState();
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return seedState();
+    return JSON.parse(raw) as SharedMockState;
+  } catch {
+    return seedState();
+  }
+}
+
+// A single object shared by every identity in this browser — not one private
+// copy per logged-in user. It's persisted to localStorage so it survives
+// reloads and syncs across other tabs of the same browser (see the "storage"
+// listener below), which is what lets a client's action show up for a
+// freelancer immediately instead of each side working from its own silo.
+let shared: SharedMockState = loadState();
+const listeners = new Set<() => void>();
+
+function persist() {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(shared));
+}
+
+function emit() {
+  persist();
+  listeners.forEach((listener) => listener());
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("storage", (event) => {
+    if (event.key !== STORAGE_KEY || !event.newValue) return;
+    try {
+      shared = JSON.parse(event.newValue) as SharedMockState;
+      listeners.forEach((listener) => listener());
+    } catch {
+      // Ignore malformed payloads written by another tab mid-update.
+    }
+  });
+}
+
+/** Notifies on every mutation, whether it originated in this tab or another one. */
+export function subscribeToBackend(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+/** Test-only: reseed the shared backend so test files don't leak state into each other. */
+export function __resetMockBackend(): void {
+  shared = seedState();
+  if (typeof window !== "undefined") window.localStorage.removeItem(STORAGE_KEY);
+}
+
+function pushNotification(
+  userEmail: string,
+  type: NotificationType,
+  title: string,
+  body: string,
+  projectId?: string
+) {
+  const notification: Notification = {
+    id: `notif-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    userEmail,
+    projectId,
+    type,
+    title,
+    body,
+    createdAt: new Date().toISOString(),
+    read: false,
+  };
+  shared.notifications = [notification, ...shared.notifications].slice(0, 100);
+}
+
+export function findUserByEmail(email: string): User | undefined {
+  return shared.users.find((u) => u.email === email);
+}
+
+function nextAvatarColor(): string {
+  return AVATAR_COLORS[shared.users.length % AVATAR_COLORS.length]!;
+}
+
+function ensureUser(email: string, fallbackName: string, role: UserRole): User {
+  const existing = findUserByEmail(email);
+  if (existing) return existing;
+
+  const user: User = {
+    id: email,
+    name: fallbackName,
+    email,
+    role,
+    kycStatus: "NOT_STARTED",
+    walletAddress: "",
+    walletAvailable: 0,
+    avatarColor: nextAvatarColor(),
+    createdAt: new Date().toISOString(),
+    notificationPreferences: { milestoneUpdates: true, payments: true, messages: true, marketing: false },
+  };
+  shared.users = [...shared.users, user];
+  return user;
+}
+
+/**
+ * Finds or creates the account behind an authenticated email. An identity's
+ * role is fixed the first time it's established (at signup, at first mock
+ * login, or when invited onto a project) — later calls never change it,
+ * matching the "role is immutable after signup" rule.
+ */
+export function upsertUserForAuth(email: string, name: string, role: UserRole): User {
+  const user = ensureUser(email, name, role);
+  emit();
+  return user;
+}
+
+function findProject(projectId: string): Project {
+  const project = shared.projects.find((p) => p.id === projectId);
   if (!project) throw new MockServiceError(`Project ${projectId} not found`);
   return project;
+}
+
+function requireClient(project: Project, email: string) {
+  if (project.clientEmail !== email) {
+    throw new MockServiceError("Only this project's client can do that");
+  }
+}
+
+function requireFreelancer(project: Project, email: string) {
+  if (project.freelancerEmail !== email) {
+    throw new MockServiceError("Only this project's freelancer can do that");
+  }
+}
+
+function requireParty(project: Project, email: string) {
+  if (project.clientEmail !== email && project.freelancerEmail !== email) {
+    throw new MockServiceError("You don't have access to this project");
+  }
 }
 
 function allReleased(project: Project): boolean {
   return project.milestones.every((m) => m.status === "RELEASED");
 }
 
+function replaceProject(updated: Project) {
+  shared.projects = shared.projects.map((p) => (p.id === updated.id ? updated : p));
+}
+
+function creditWallet(email: string, delta: number) {
+  shared.users = shared.users.map((u) =>
+    u.email !== email ? u : { ...u, walletAvailable: Math.round((u.walletAvailable + delta) * 100) / 100 }
+  );
+}
+
+export function listProjectsForUser(email: string): Project[] {
+  return shared.projects.filter((p) => p.clientEmail === email || p.freelancerEmail === email);
+}
+
+const SIGNED_OUT_USER: User = {
+  id: "",
+  name: "",
+  email: "",
+  role: "CLIENT",
+  kycStatus: "NOT_STARTED",
+  walletAddress: "",
+  walletAvailable: 0,
+  avatarColor: "#3B6DF5",
+  createdAt: new Date(0).toISOString(),
+  notificationPreferences: { milestoneUpdates: true, payments: true, messages: true, marketing: false },
+};
+
+/** Builds the scoped slice of the shared backend a given account is allowed to see. */
+export function getViewForUser(email: string): MockState {
+  // No session yet (store initializes before auth hydration finishes) — hand
+  // back an inert placeholder rather than provisioning a "" identity.
+  if (!email) {
+    return { currentUser: SIGNED_OUT_USER, projects: [], payments: [], messages: [], files: [], disputes: [] };
+  }
+
+  const currentUser = findUserByEmail(email) ?? ensureUser(email, email.split("@")[0] || "Member", "CLIENT");
+  const projects = listProjectsForUser(email);
+  const projectIds = new Set(projects.map((p) => p.id));
+
+  return {
+    currentUser,
+    projects,
+    payments: shared.payments.filter((p) => p.userEmail === email || projectIds.has(p.projectId)),
+    messages: shared.messages.filter((m) => projectIds.has(m.projectId)),
+    files: shared.files.filter((f) => projectIds.has(f.projectId)),
+    disputes: shared.disputes.filter((d) => projectIds.has(d.projectId)),
+  };
+}
+
 export function computeWalletSummary(state: MockState): WalletState {
   const inEscrow = state.projects
-    .filter((p) => p.clientId === state.currentUser.id)
+    .filter((p) => p.clientEmail === state.currentUser.email)
     .reduce((sum, p) => sum + p.escrowBalance, 0);
 
   const pendingEarnings = state.projects
-    .filter((p) => p.freelancerId === state.currentUser.id)
+    .filter((p) => p.freelancerEmail === state.currentUser.email)
     .flatMap((p) => p.milestones)
     .filter((m) => m.status === "SUBMITTED")
     .reduce((sum, m) => sum + (m.amount - releaseFee(m.amount)), 0);
 
   return {
-    available: state.wallet.available,
+    available: state.currentUser.walletAvailable,
     inEscrow: Math.round(inEscrow * 100) / 100,
     pendingEarnings: Math.round(pendingEarnings * 100) / 100,
   };
 }
 
-export function submitMilestone(
-  state: MockState,
-  projectId: string,
-  milestoneId: string,
-  note: string
-): MockState {
-  const project = findProject(state, projectId);
+export function submitMilestone(projectId: string, milestoneId: string, note: string, actingEmail: string): void {
+  const project = findProject(projectId);
+  requireFreelancer(project, actingEmail);
   const milestone = project.milestones.find((m) => m.id === milestoneId);
   if (!milestone) throw new MockServiceError(`Milestone ${milestoneId} not found`);
 
@@ -93,26 +284,29 @@ export function submitMilestone(
   }
 
   const now = new Date().toISOString();
-
-  return {
-    ...state,
-    projects: state.projects.map((p) =>
-      p.id !== projectId
-        ? p
-        : {
-            ...p,
-            milestones: p.milestones.map((m) =>
-              m.id !== milestoneId
-                ? m
-                : { ...m, status: "SUBMITTED", submittedAt: now, submissionNote: note, rejectionReason: undefined }
-            ),
-          }
+  replaceProject({
+    ...project,
+    milestones: project.milestones.map((m) =>
+      m.id !== milestoneId
+        ? m
+        : { ...m, status: "SUBMITTED", submittedAt: now, submissionNote: note, rejectionReason: undefined }
     ),
-  };
+  });
+
+  pushNotification(
+    project.clientEmail,
+    "MILESTONE_SUBMITTED",
+    "Milestone submitted for review",
+    `${milestone.title} on ${project.title} is ready for your review.`,
+    projectId
+  );
+
+  emit();
 }
 
-export function approveMilestone(state: MockState, projectId: string, milestoneId: string): MockState {
-  const project = findProject(state, projectId);
+export function approveMilestone(projectId: string, milestoneId: string, actingEmail: string): void {
+  const project = findProject(projectId);
+  requireClient(project, actingEmail);
   const milestone = project.milestones.find((m) => m.id === milestoneId);
   if (!milestone) throw new MockServiceError(`Milestone ${milestoneId} not found`);
   if (milestone.status !== "SUBMITTED") {
@@ -122,17 +316,17 @@ export function approveMilestone(state: MockState, projectId: string, milestoneI
   const now = new Date().toISOString();
   const fee = releaseFee(milestone.amount);
   const net = Math.round((milestone.amount - fee) * 100) / 100;
-  const isCurrentUserFreelancer = project.freelancerId === state.currentUser.id;
 
-  const updatedMilestones = project.milestones.map((m) =>
-    m.id !== milestoneId ? m : { ...m, status: "RELEASED" as const, approvedAt: now, releasedAt: now }
-  );
   const updatedProject: Project = {
     ...project,
-    milestones: updatedMilestones,
+    milestones: project.milestones.map((m) =>
+      m.id !== milestoneId ? m : { ...m, status: "RELEASED" as const, approvedAt: now, releasedAt: now }
+    ),
     escrowBalance: Math.round((project.escrowBalance - milestone.amount) * 100) / 100,
   };
   updatedProject.status = allReleased(updatedProject) ? "COMPLETED" : updatedProject.status;
+  replaceProject(updatedProject);
+  creditWallet(project.freelancerEmail, net);
 
   const payment: Payment = {
     id: `pay-${Date.now()}-${milestoneId}`,
@@ -143,26 +337,24 @@ export function approveMilestone(state: MockState, projectId: string, milestoneI
     fee,
     status: "COMPLETED",
     createdAt: now,
-    counterparty: isCurrentUserFreelancer ? project.clientName : project.freelancerName,
+    counterparty: project.clientName,
   };
+  shared.payments = [payment, ...shared.payments];
 
-  return {
-    ...state,
-    wallet: isCurrentUserFreelancer
-      ? { ...state.wallet, available: Math.round((state.wallet.available + net) * 100) / 100 }
-      : state.wallet,
-    projects: state.projects.map((p) => (p.id === projectId ? updatedProject : p)),
-    payments: [payment, ...state.payments],
-  };
+  pushNotification(
+    project.freelancerEmail,
+    "MILESTONE_APPROVED",
+    "Milestone approved",
+    `${milestone.title} on ${project.title} was approved — $${net.toFixed(2)} was released to your balance.`,
+    projectId
+  );
+
+  emit();
 }
 
-export function requestChanges(
-  state: MockState,
-  projectId: string,
-  milestoneId: string,
-  reason: string
-): MockState {
-  const project = findProject(state, projectId);
+export function requestChanges(projectId: string, milestoneId: string, reason: string, actingEmail: string): void {
+  const project = findProject(projectId);
+  requireClient(project, actingEmail);
   const milestone = project.milestones.find((m) => m.id === milestoneId);
   if (!milestone) throw new MockServiceError(`Milestone ${milestoneId} not found`);
   if (milestone.status !== "SUBMITTED") {
@@ -170,38 +362,37 @@ export function requestChanges(
   }
 
   const now = new Date().toISOString();
-
-  return {
-    ...state,
-    projects: state.projects.map((p) =>
-      p.id !== projectId
-        ? p
-        : {
-            ...p,
-            milestones: p.milestones.map((m) =>
-              m.id !== milestoneId ? m : { ...m, status: "REJECTED", rejectedAt: now, rejectionReason: reason }
-            ),
-          }
+  replaceProject({
+    ...project,
+    milestones: project.milestones.map((m) =>
+      m.id !== milestoneId ? m : { ...m, status: "REJECTED", rejectedAt: now, rejectionReason: reason }
     ),
-  };
+  });
+
+  pushNotification(
+    project.freelancerEmail,
+    "MILESTONE_REJECTED",
+    "Changes requested",
+    `The client asked for changes on ${milestone.title} (${project.title}).`,
+    projectId
+  );
+
+  emit();
 }
 
-export function findDisputeForMilestone(
-  state: MockState,
-  escrowId: string,
-  milestoneId: string
-): Dispute | undefined {
-  return state.disputes.find((d) => d.projectId === escrowId && d.milestoneId === milestoneId);
+export function findDisputeForMilestone(state: MockState, projectId: string, milestoneId: string): Dispute | undefined {
+  return state.disputes.find((d) => d.projectId === projectId && d.milestoneId === milestoneId);
 }
 
 export function openDispute(
-  state: MockState,
-  escrowId: string,
+  projectId: string,
   milestoneId: string,
-  initiator: string,
+  actingEmail: string,
+  initiatorName: string,
   reason: string
-): MockState {
-  const project = findProject(state, escrowId);
+): void {
+  const project = findProject(projectId);
+  requireParty(project, actingEmail);
   const milestone = project.milestones.find((m) => m.id === milestoneId);
   if (!milestone) throw new MockServiceError(`Milestone ${milestoneId} not found`);
   if (milestone.status === "DISPUTED") {
@@ -214,83 +405,112 @@ export function openDispute(
   const now = new Date();
   const dispute: Dispute = {
     id: `dispute-${Date.now()}`,
-    projectId: escrowId,
+    projectId,
     milestoneId,
-    initiatorId: state.currentUser.id,
-    initiatorName: initiator,
+    initiatorId: findUserByEmail(actingEmail)?.id ?? actingEmail,
+    initiatorName,
     reason,
     createdAt: now.toISOString(),
     expectedResolutionAt: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString(),
     resolved: false,
   };
+  shared.disputes = [dispute, ...shared.disputes];
 
-  return {
-    ...state,
-    disputes: [dispute, ...state.disputes],
-    projects: state.projects.map((p) =>
-      p.id !== escrowId
-        ? p
-        : {
-            ...p,
-            status: "DISPUTED",
-            milestones: p.milestones.map((m) => (m.id !== milestoneId ? m : { ...m, status: "DISPUTED" })),
-          }
-    ),
-  };
+  replaceProject({
+    ...project,
+    status: "DISPUTED",
+    milestones: project.milestones.map((m) => (m.id !== milestoneId ? m : { ...m, status: "DISPUTED" })),
+  });
+
+  const counterpartyEmail = actingEmail === project.clientEmail ? project.freelancerEmail : project.clientEmail;
+  pushNotification(
+    counterpartyEmail,
+    "DISPUTE_OPENED",
+    "Dispute opened",
+    `${initiatorName} opened a dispute on ${milestone.title} (${project.title}).`,
+    projectId
+  );
+
+  emit();
 }
 
 export function resolveDispute(
-  state: MockState,
-  escrowId: string,
+  projectId: string,
   milestoneId: string,
   outcome: DisputeOutcome,
   split?: number
-): MockState {
-  const dispute = findDisputeForMilestone(state, escrowId, milestoneId);
-  if (!dispute || dispute.resolved) {
+): void {
+  const project = findProject(projectId);
+  const dispute = shared.disputes.find(
+    (d) => d.projectId === projectId && d.milestoneId === milestoneId && !d.resolved
+  );
+  if (!dispute) {
     throw new MockServiceError("No open dispute found for this milestone");
   }
 
   const now = new Date().toISOString();
   const clientSplitPercent = outcome === "SPLIT" ? Math.min(100, Math.max(0, split ?? 50)) : undefined;
 
-  return {
-    ...state,
-    disputes: state.disputes.map((d) =>
-      d.id !== dispute.id ? d : { ...d, resolved: true, resolvedAt: now, outcome, clientSplitPercent }
-    ),
-  };
+  shared.disputes = shared.disputes.map((d) =>
+    d.id !== dispute.id ? d : { ...d, resolved: true, resolvedAt: now, outcome, clientSplitPercent }
+  );
+
+  pushNotification(
+    project.clientEmail,
+    "DISPUTE_RESOLVED",
+    "Dispute resolved",
+    `The dispute on ${project.title} was resolved.`,
+    projectId
+  );
+  pushNotification(
+    project.freelancerEmail,
+    "DISPUTE_RESOLVED",
+    "Dispute resolved",
+    `The dispute on ${project.title} was resolved.`,
+    projectId
+  );
+
+  emit();
 }
 
-export function fundEscrow(state: MockState, projectId: string): MockState {
-  const project = findProject(state, projectId);
+export function fundEscrow(projectId: string, actingEmail: string): void {
+  const project = findProject(projectId);
+  requireClient(project, actingEmail);
   if (project.status !== "AWAITING_DEPOSIT") {
     throw new MockServiceError("Only projects awaiting deposit can be funded");
   }
-  if (state.wallet.available < project.budget) {
+  const client = findUserByEmail(actingEmail);
+  if (!client || client.walletAvailable < project.budget) {
     throw new MockServiceError("Insufficient balance to fund escrow. Deposit funds first.");
   }
 
-  return {
-    ...state,
-    wallet: { ...state.wallet, available: Math.round((state.wallet.available - project.budget) * 100) / 100 },
-    projects: state.projects.map((p) =>
-      p.id !== projectId
-        ? p
-        : { ...p, escrowFunded: true, escrowBalance: project.budget, status: "ACTIVE" }
-    ),
-  };
+  creditWallet(actingEmail, -project.budget);
+  replaceProject({ ...project, escrowFunded: true, escrowBalance: project.budget, status: "ACTIVE" });
+
+  pushNotification(
+    project.freelancerEmail,
+    "ESCROW_FUNDED",
+    "Escrow funded",
+    `${project.clientName} funded escrow for ${project.title} — you can start submitting work.`,
+    projectId
+  );
+
+  emit();
 }
 
-export function withdraw(state: MockState, amount: number, destination: WithdrawDestination): MockState {
+export function withdraw(actingEmail: string, amount: number, destination: WithdrawDestination): void {
   if (amount <= 0) throw new MockServiceError("Enter an amount greater than zero");
+  const user = findUserByEmail(actingEmail);
+  if (!user) throw new MockServiceError("Account not found");
+
   const fee = WITHDRAW_FEES[destination].fee(amount);
   const total = Math.round((amount + fee) * 100) / 100;
-  if (total > state.wallet.available) {
+  if (total > user.walletAvailable) {
     throw new MockServiceError("Insufficient balance for this withdrawal");
   }
 
-  const now = new Date().toISOString();
+  creditWallet(actingEmail, -total);
+
   const payment: Payment = {
     id: `pay-${Date.now()}-withdraw`,
     projectId: "",
@@ -299,23 +519,22 @@ export function withdraw(state: MockState, amount: number, destination: Withdraw
     amount,
     fee,
     status: "COMPLETED",
-    createdAt: now,
+    createdAt: new Date().toISOString(),
     counterparty: WITHDRAW_FEES[destination].label,
+    userEmail: actingEmail,
   };
+  shared.payments = [payment, ...shared.payments];
 
-  return {
-    ...state,
-    wallet: { ...state.wallet, available: Math.round((state.wallet.available - total) * 100) / 100 },
-    payments: [payment, ...state.payments],
-  };
+  emit();
 }
 
-export function deposit(state: MockState, amount: number, method: DepositMethod): MockState {
+export function deposit(actingEmail: string, amount: number, method: DepositMethod): void {
   if (amount <= 0) throw new MockServiceError("Enter an amount greater than zero");
   const fee = DEPOSIT_FEES[method].fee(amount);
   const net = Math.round((amount - fee) * 100) / 100;
 
-  const now = new Date().toISOString();
+  creditWallet(actingEmail, net);
+
   const payment: Payment = {
     id: `pay-${Date.now()}-deposit`,
     projectId: "",
@@ -324,15 +543,13 @@ export function deposit(state: MockState, amount: number, method: DepositMethod)
     amount,
     fee,
     status: "COMPLETED",
-    createdAt: now,
+    createdAt: new Date().toISOString(),
     counterparty: DEPOSIT_FEES[method].label,
+    userEmail: actingEmail,
   };
+  shared.payments = [payment, ...shared.payments];
 
-  return {
-    ...state,
-    wallet: { ...state.wallet, available: Math.round((state.wallet.available + net) * 100) / 100 },
-    payments: [payment, ...state.payments],
-  };
+  emit();
 }
 
 export interface CreateProjectInput {
@@ -342,24 +559,31 @@ export interface CreateProjectInput {
   milestones: { title: string; description: string; amount: number }[];
 }
 
-export function createProject(state: MockState, input: CreateProjectInput): MockState {
+export function createProject(clientEmail: string, input: CreateProjectInput): Project {
+  const client = findUserByEmail(clientEmail);
+  if (!client) throw new MockServiceError("Account not found");
+
+  const derivedName = input.freelancerEmail.split("@")[0] || "Freelancer";
+  const freelancer = ensureUser(
+    input.freelancerEmail,
+    derivedName.charAt(0).toUpperCase() + derivedName.slice(1),
+    "FREELANCER"
+  );
+
   const now = new Date().toISOString();
   const budget = Math.round(input.milestones.reduce((sum, m) => sum + m.amount, 0) * 100) / 100;
   const id = `proj-${Date.now()}`;
-  const freelancerName = input.freelancerEmail.split("@")[0] ?? "Freelancer";
 
-  // This mock backend simulates a single seeded identity rather than two real
-  // accounts, so the invited freelancer is keyed to the same demo user id —
-  // that's what lets the project show up when viewed from either role.
   const project: Project = {
     id,
     title: input.title,
     description: input.description,
-    clientId: state.currentUser.id,
-    clientName: state.currentUser.name,
-    freelancerId: state.currentUser.id,
-    freelancerName: freelancerName.charAt(0).toUpperCase() + freelancerName.slice(1),
-    freelancerEmail: input.freelancerEmail,
+    clientId: client.id,
+    clientName: client.name,
+    clientEmail: client.email,
+    freelancerId: freelancer.id,
+    freelancerName: freelancer.name,
+    freelancerEmail: freelancer.email,
     status: "AWAITING_DEPOSIT",
     budget,
     escrowFunded: false,
@@ -376,47 +600,64 @@ export function createProject(state: MockState, input: CreateProjectInput): Mock
     })),
   };
 
-  return { ...state, projects: [project, ...state.projects] };
+  shared.projects = [project, ...shared.projects];
+
+  pushNotification(
+    freelancer.email,
+    "PROJECT_CREATED",
+    "You were invited to a new project",
+    `${client.name} invited you to work on ${project.title}.`,
+    id
+  );
+
+  emit();
+  return project;
 }
 
-export function sendMessage(state: MockState, projectId: string, body: string): MockState {
+export function sendMessage(projectId: string, actingEmail: string, actingName: string, body: string): void {
+  const project = findProject(projectId);
+  requireParty(project, actingEmail);
+
   const message: Message = {
     id: `msg-${Date.now()}`,
     projectId,
-    senderId: state.currentUser.id,
-    senderName: state.currentUser.name,
+    senderId: findUserByEmail(actingEmail)?.id ?? actingEmail,
+    senderName: actingName,
     body,
     createdAt: new Date().toISOString(),
   };
-  return { ...state, messages: [...state.messages, message] };
+  shared.messages = [...shared.messages, message];
+  emit();
 }
 
-export function uploadFile(state: MockState, projectId: string, name: string, sizeKb: number): MockState {
+export function uploadFile(projectId: string, actingEmail: string, actingName: string, name: string, sizeKb: number): void {
+  const project = findProject(projectId);
+  requireParty(project, actingEmail);
+
   const file: ProjectFile = {
     id: `file-${Date.now()}`,
     projectId,
     name,
     sizeKb,
-    uploadedBy: state.currentUser.name,
+    uploadedBy: actingName,
     uploadedAt: new Date().toISOString(),
   };
-  return { ...state, files: [...state.files, file] };
+  shared.files = [...shared.files, file];
+  emit();
 }
 
-export function updateProfile(state: MockState, updates: Partial<Pick<User, "name" | "email">>): MockState {
-  return { ...state, currentUser: { ...state.currentUser, ...updates } };
+export function updateProfile(actingEmail: string, updates: Partial<Pick<User, "name" | "email">>): void {
+  shared.users = shared.users.map((u) => (u.email !== actingEmail ? u : { ...u, ...updates }));
+  emit();
 }
 
 export function updateNotificationPreference(
-  state: MockState,
+  actingEmail: string,
   key: keyof User["notificationPreferences"],
   value: boolean
-): MockState {
-  return {
-    ...state,
-    currentUser: {
-      ...state.currentUser,
-      notificationPreferences: { ...state.currentUser.notificationPreferences, [key]: value },
-    },
-  };
+): void {
+  shared.users = shared.users.map((u) =>
+    u.email !== actingEmail ? u : { ...u, notificationPreferences: { ...u.notificationPreferences, [key]: value } }
+  );
+  emit();
 }

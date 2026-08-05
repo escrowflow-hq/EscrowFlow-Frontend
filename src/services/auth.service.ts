@@ -1,4 +1,5 @@
 import { API_URL, USE_MOCK } from "@/lib/config";
+import { upsertUserForAuth } from "@/lib/mock/service";
 import type { User, UserRole } from "@/lib/types";
 
 export interface AuthResult {
@@ -28,25 +29,6 @@ function mockToken(email: string): string {
   return `mock-${Math.random().toString(36).slice(2)}-${Date.now()}-${email.length}`;
 }
 
-function mockUser(name: string, email: string, role: UserRole): User {
-  return {
-    id: `user-${Date.now()}`,
-    name,
-    email,
-    role,
-    kycStatus: "NOT_STARTED",
-    walletAddress: "",
-    avatarColor: "#3B6DF5",
-    createdAt: new Date().toISOString(),
-    notificationPreferences: {
-      milestoneUpdates: true,
-      payments: true,
-      messages: true,
-      marketing: false,
-    },
-  };
-}
-
 async function parseErrorMessage(res: Response, fallback: string): Promise<string> {
   const body = await res.json().catch(() => null);
   return (body && typeof body.message === "string" && body.message) || fallback;
@@ -59,10 +41,12 @@ async function login(email: string, password: string): Promise<AuthResult> {
   if (USE_MOCK) {
     await delay(400);
     const name = email.split("@")[0] || "Member";
+    // Login doesn't collect a role. If this email already has an account in
+    // the shared mock backend (from signup, an earlier login, or being
+    // invited onto a project), that account — and its role — is reused as-is;
+    // otherwise a new CLIENT account is provisioned.
     return {
-      // Login doesn't collect a role — the mock backend has no memory of what
-      // was chosen at signup, so this just defaults to CLIENT.
-      user: mockUser(name.charAt(0).toUpperCase() + name.slice(1), email, "CLIENT"),
+      user: upsertUserForAuth(email, name.charAt(0).toUpperCase() + name.slice(1), "CLIENT"),
       token: mockToken(email),
     };
   }
@@ -87,7 +71,10 @@ async function register(name: string, email: string, password: string, role: Use
 
   if (USE_MOCK) {
     await delay(400);
-    return { user: mockUser(name.trim(), email, role), token: mockToken(email) };
+    // Role is immutable once an account exists — if this email was already
+    // registered (or seeded, or invited onto a project as a freelancer), the
+    // requested role is ignored in favor of the account's existing one.
+    return { user: upsertUserForAuth(email, name.trim(), role), token: mockToken(email) };
   }
 
   const res = await fetch(`${API_URL}/auth/register`, {
