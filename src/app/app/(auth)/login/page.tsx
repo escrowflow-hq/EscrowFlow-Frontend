@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/Button";
+import { GoogleButton } from "@/components/auth/GoogleButton";
+import { AppleButton } from "@/components/auth/AppleButton";
 import { useAuthStore } from "@/store/auth.store";
 
 const FIELD_CLASSES =
@@ -13,6 +15,7 @@ const FIELD_CLASSES =
 export default function LoginPage() {
   const router = useRouter();
   const login = useAuthStore((s) => s.login);
+  const loginWithProvider = useAuthStore((s) => s.loginWithProvider);
   const isLoading = useAuthStore((s) => s.isLoading);
   const error = useAuthStore((s) => s.error);
   const clearError = useAuthStore((s) => s.clearError);
@@ -33,6 +36,18 @@ export default function LoginPage() {
     }
   }
 
+  // Login never collects a role — an unrecognized email is provisioned as
+  // CLIENT here too, same as the plain email/password path (see
+  // auth.service.ts). A known email's existing role always wins.
+  async function handleOAuth(provider: "google" | "apple", idToken: string, nameHint?: string) {
+    try {
+      await loginWithProvider(provider, idToken, "CLIENT", nameHint);
+      router.push("/app");
+    } catch {
+      // error state is surfaced from the store below
+    }
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-surface px-4 py-12">
       <div className="w-full max-w-sm">
@@ -44,7 +59,27 @@ export default function LoginPage() {
           <h1 className="text-xl font-semibold text-ink">Log in</h1>
           <p className="mt-1 text-sm text-ink-secondary">Welcome back. Enter your details to continue.</p>
 
-          <form onSubmit={handleSubmit} className="mt-6 space-y-4" noValidate>
+          <div className="mt-6 space-y-3">
+            <GoogleButton onCredential={(idToken) => handleOAuth("google", idToken)} disabled={isLoading} />
+            <AppleButton
+              onCredential={(idToken, nameHint) => handleOAuth("apple", idToken, nameHint)}
+              disabled={isLoading}
+            />
+          </div>
+
+          <div className="my-6 flex items-center gap-3">
+            <div className="h-px flex-1 bg-line" />
+            <span className="text-xs font-medium uppercase tracking-wide text-ink-secondary">or continue with email</span>
+            <div className="h-px flex-1 bg-line" />
+          </div>
+
+          {error && (
+            <p role="alert" className="mb-4 text-sm text-danger">
+              {error}
+            </p>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
             <div>
               <label htmlFor="email" className="text-sm font-medium text-ink">
                 Email
@@ -80,12 +115,6 @@ export default function LoginPage() {
                 className={FIELD_CLASSES}
               />
             </div>
-
-            {error && (
-              <p role="alert" className="text-sm text-danger">
-                {error}
-              </p>
-            )}
 
             <Button type="submit" size="lg" className="w-full" disabled={isLoading}>
               {isLoading ? "Logging in…" : "Log in"}

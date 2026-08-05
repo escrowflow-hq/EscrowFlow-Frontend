@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { authService, AuthError } from "@/services/auth.service";
+import { authService, AuthError, type OAuthProvider } from "@/services/auth.service";
 import type { User, UserRole } from "@/lib/types";
 
 const TOKEN_COOKIE = "token";
@@ -28,6 +28,12 @@ interface AuthStore {
   hasHydrated: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string, role: UserRole) => Promise<void>;
+  loginWithProvider: (
+    provider: OAuthProvider,
+    idToken: string,
+    roleIfNew: UserRole,
+    nameHint?: string
+  ) => Promise<void>;
   requestPasswordReset: (email: string) => Promise<void>;
   logout: () => void;
   clearError: () => void;
@@ -60,6 +66,18 @@ export const useAuthStore = create<AuthStore>()(
         set({ isLoading: true, error: null });
         try {
           const { user, token } = await authService.register(name, email, password, role);
+          setTokenCookie(token);
+          set({ user, token, isAuthenticated: true, userRole: user.role, isLoading: false });
+        } catch (err) {
+          const message = err instanceof AuthError ? err.message : "Something went wrong. Try again.";
+          set({ isLoading: false, error: message });
+          throw err;
+        }
+      },
+      loginWithProvider: async (provider, idToken, roleIfNew, nameHint) => {
+        set({ isLoading: true, error: null });
+        try {
+          const { user, token } = await authService.oauthAuthenticate(provider, idToken, roleIfNew, nameHint);
           setTokenCookie(token);
           set({ user, token, isAuthenticated: true, userRole: user.role, isLoading: false });
         } catch (err) {

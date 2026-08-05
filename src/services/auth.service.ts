@@ -1,11 +1,14 @@
-import { API_URL, USE_MOCK } from "@/lib/config";
+import { API_URL, APPLE_CLIENT_ID, GOOGLE_CLIENT_ID, USE_MOCK } from "@/lib/config";
 import { upsertUserForAuth } from "@/lib/mock/service";
+import { OAuthVerificationError, verifyAppleIdToken, verifyGoogleIdToken } from "@/lib/oauth/verify";
 import type { User, UserRole } from "@/lib/types";
 
 export interface AuthResult {
   user: User;
   token: string;
 }
+
+export type OAuthProvider = "google" | "apple";
 
 export class AuthError extends Error {}
 
@@ -88,6 +91,52 @@ async function register(name: string, email: string, password: string, role: Use
   return res.json();
 }
 
+/**
+ * Handles both "sign in with Google/Apple" and "sign up with Google/Apple" —
+ * there's no separate endpoint for each because the shared mock backend's
+ * upsertUserForAuth() already does the right thing either way: an existing
+ * account is logged into as-is (role untouched), a new email is provisioned
+ * with `roleIfNew` (CLIENT when called from the login page, whatever the
+ * signup form's role selector was set to when called from there).
+ */
+async function oauthAuthenticate(
+  provider: OAuthProvider,
+  idToken: string,
+  roleIfNew: UserRole,
+  nameHint?: string
+): Promise<AuthResult> {
+  let identity;
+  try {
+    identity =
+      provider === "google"
+        ? await verifyGoogleIdToken(idToken, GOOGLE_CLIENT_ID)
+        : await verifyAppleIdToken(idToken, APPLE_CLIENT_ID);
+  } catch (err) {
+    throw err instanceof OAuthVerificationError ? new AuthError(err.message) : err;
+  }
+
+  if (!identity.emailVerified) {
+    throw new AuthError("Your email address isn't verified with your provider yet");
+  }
+
+  const name = (nameHint || identity.name || identity.email.split("@")[0] || "Member").trim();
+
+  if (USE_MOCK) {
+    await delay(300);
+    return { user: upsertUserForAuth(identity.email, name, roleIfNew), token: mockToken(identity.email) };
+  }
+
+  const res = await fetch(`${API_URL}/auth/oauth`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ provider, idToken, name, role: roleIfNew }),
+  });
+  if (!res.ok) {
+    throw new AuthError(await parseErrorMessage(res, "Could not sign in"));
+  }
+  return res.json();
+}
+
 async function requestPasswordReset(email: string): Promise<void> {
   assertEmail(email);
 
@@ -106,4 +155,4 @@ async function requestPasswordReset(email: string): Promise<void> {
   }
 }
 
-export const authService = { login, register, requestPasswordReset };
+export const authService = { login, register, oauthAuthenticate, requestPasswordReset };

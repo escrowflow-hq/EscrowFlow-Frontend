@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/Button";
+import { GoogleButton } from "@/components/auth/GoogleButton";
+import { AppleButton } from "@/components/auth/AppleButton";
 import { useAuthStore } from "@/store/auth.store";
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@/lib/types";
@@ -12,14 +14,15 @@ import type { UserRole } from "@/lib/types";
 const FIELD_CLASSES =
   "mt-1.5 w-full rounded-xl border border-line p-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary";
 
-const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
-  { value: "CLIENT", label: "Client (paying for work)" },
-  { value: "FREELANCER", label: "Freelancer (doing work)" },
+const ROLE_OPTIONS: { value: UserRole; label: string; description: string }[] = [
+  { value: "CLIENT", label: "Client", description: "Hire freelancers and pay for milestones" },
+  { value: "FREELANCER", label: "Freelancer", description: "Get hired and withdraw payments safely" },
 ];
 
 export default function SignupPage() {
   const router = useRouter();
   const register = useAuthStore((s) => s.register);
+  const loginWithProvider = useAuthStore((s) => s.loginWithProvider);
   const isLoading = useAuthStore((s) => s.isLoading);
   const error = useAuthStore((s) => s.error);
   const clearError = useAuthStore((s) => s.clearError);
@@ -42,6 +45,18 @@ export default function SignupPage() {
     }
   }
 
+  // The role picked above applies regardless of which method finishes the
+  // signup — it's only used if this email doesn't already have an account
+  // (upsertUserForAuth keeps an existing account's role untouched either way).
+  async function handleOAuth(provider: "google" | "apple", idToken: string, nameHint?: string) {
+    try {
+      await loginWithProvider(provider, idToken, role, nameHint);
+      router.push("/app");
+    } catch {
+      // error state is surfaced from the store below
+    }
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-surface px-4 py-12">
       <div className="w-full max-w-sm">
@@ -53,7 +68,60 @@ export default function SignupPage() {
           <h1 className="text-xl font-semibold text-ink">Create your account</h1>
           <p className="mt-1 text-sm text-ink-secondary">Get paid safely for work, anywhere in the world.</p>
 
-          <form onSubmit={handleSubmit} className="mt-6 space-y-4" noValidate>
+          <div className="mt-6">
+            <span className="text-sm font-medium text-ink">I am a...</span>
+            <div className="mt-1.5 grid grid-cols-2 gap-3" role="radiogroup" aria-label="I am a...">
+              {ROLE_OPTIONS.map((option) => {
+                const isSelected = role === option.value;
+                return (
+                  <label
+                    key={option.value}
+                    className={cn(
+                      "flex cursor-pointer flex-col gap-0.5 rounded-xl border p-3 text-sm font-medium transition-colors",
+                      isSelected ? "border-primary bg-primary-light text-primary" : "border-line text-ink hover:bg-surface"
+                    )}
+                  >
+                    <span className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="role"
+                        value={option.value}
+                        checked={isSelected}
+                        onChange={() => setRole(option.value)}
+                        className="sr-only"
+                      />
+                      {option.label}
+                    </span>
+                    <span className={cn("text-xs font-normal", isSelected ? "text-primary/80" : "text-ink-secondary")}>
+                      {option.description}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="mt-6 space-y-3">
+            <GoogleButton onCredential={(idToken) => handleOAuth("google", idToken)} disabled={isLoading} />
+            <AppleButton
+              onCredential={(idToken, nameHint) => handleOAuth("apple", idToken, nameHint)}
+              disabled={isLoading}
+            />
+          </div>
+
+          <div className="my-6 flex items-center gap-3">
+            <div className="h-px flex-1 bg-line" />
+            <span className="text-xs font-medium uppercase tracking-wide text-ink-secondary">or continue with email</span>
+            <div className="h-px flex-1 bg-line" />
+          </div>
+
+          {error && (
+            <p role="alert" className="mb-4 text-sm text-danger">
+              {error}
+            </p>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
             <div>
               <label htmlFor="name" className="text-sm font-medium text-ink">
                 Full name
@@ -100,40 +168,6 @@ export default function SignupPage() {
               />
               <p className="mt-1.5 text-xs text-ink-secondary">Must be at least 8 characters.</p>
             </div>
-
-            <div>
-              <span className="text-sm font-medium text-ink">I am a...</span>
-              <div className="mt-1.5 grid grid-cols-2 gap-3" role="radiogroup" aria-label="I am a...">
-                {ROLE_OPTIONS.map((option) => {
-                  const isSelected = role === option.value;
-                  return (
-                    <label
-                      key={option.value}
-                      className={cn(
-                        "flex cursor-pointer items-center gap-2 rounded-xl border p-3 text-sm font-medium transition-colors",
-                        isSelected ? "border-primary bg-primary-light text-primary" : "border-line text-ink hover:bg-surface"
-                      )}
-                    >
-                      <input
-                        type="radio"
-                        name="role"
-                        value={option.value}
-                        checked={isSelected}
-                        onChange={() => setRole(option.value)}
-                        className="sr-only"
-                      />
-                      {option.label}
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
-
-            {error && (
-              <p role="alert" className="text-sm text-danger">
-                {error}
-              </p>
-            )}
 
             <Button type="submit" size="lg" className="w-full" disabled={isLoading}>
               {isLoading ? "Creating account…" : "Create account"}

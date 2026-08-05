@@ -1,12 +1,29 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { authService, AuthError } from "@/services/auth.service";
 import { __resetMockBackend } from "@/lib/mock/service";
+
+// The real verifiers do genuine cryptographic verification against each
+// provider's live JWKS (see lib/oauth/verify.test.ts for that) — here we
+// stub them so these tests exercise authService's own orchestration (role
+// handling on new vs. existing accounts, unverified-email rejection, error
+// mapping) without depending on the network.
+vi.mock("@/lib/oauth/verify", async (importActual) => {
+  const actual = await importActual<typeof import("@/lib/oauth/verify")>();
+  return { ...actual, verifyGoogleIdToken: vi.fn(), verifyAppleIdToken: vi.fn() };
+});
+
+import { verifyAppleIdToken, verifyGoogleIdToken, OAuthVerificationError } from "@/lib/oauth/verify";
+
+const mockedVerifyGoogle = vi.mocked(verifyGoogleIdToken);
+const mockedVerifyApple = vi.mocked(verifyAppleIdToken);
 
 beforeEach(() => {
   // authService resolves identities through the shared mock backend, which
   // persists by email — reset it so tests reusing the same address don't see
   // an account left over from an earlier test.
   __resetMockBackend();
+  mockedVerifyGoogle.mockReset();
+  mockedVerifyApple.mockReset();
 });
 
 describe("authService.login", () => {
@@ -54,6 +71,53 @@ describe("authService.register", () => {
     const result = await authService.register("Sam Lee", "sam@example.com", "password123", "FREELANCER");
 
     expect(result.user.role).toBe("FREELANCER");
+  });
+});
+
+describe("authService.oauthAuthenticate", () => {
+  it("provisions a new account with the given role when the email hasn't been seen before", async () => {
+    mockedVerifyGoogle.mockResolvedValue({
+      email: "new-oauth-user@example.com",
+      emailVerified: true,
+      name: "New User",
+    });
+
+    const result = await authService.oauthAuthenticate("google", "fake-token", "FREELANCER");
+
+    expect(result.user.email).toBe("new-oauth-user@example.com");
+    expect(result.user.name).toBe("New User");
+    expect(result.user.role).toBe("FREELANCER");
+    expect(result.token).toEqual(expect.any(String));
+  });
+
+  it("falls back to a name derived from the email when the provider doesn't supply one", async () => {
+    mockedVerifyApple.mockResolvedValue({ email: "no-name@example.com", emailVerified: true });
+
+    const result = await authService.oauthAuthenticate("apple", "fake-token", "CLIENT");
+
+    expect(result.user.name).toBe("no-name");
+  });
+
+  it("logs into an existing account and leaves its role untouched", async () => {
+    mockedVerifyGoogle.mockResolvedValue({ email: "repeat@example.com", emailVerified: true, name: "Repeat User" });
+    const first = await authService.oauthAuthenticate("google", "fake-token", "CLIENT");
+    expect(first.user.role).toBe("CLIENT");
+
+    const second = await authService.oauthAuthenticate("google", "fake-token", "FREELANCER");
+    expect(second.user.role).toBe("CLIENT");
+    expect(second.user.email).toBe(first.user.email);
+  });
+
+  it("rejects sign-in when the provider reports an unverified email", async () => {
+    mockedVerifyApple.mockResolvedValue({ email: "unverified@example.com", emailVerified: false });
+
+    await expect(authService.oauthAuthenticate("apple", "fake-token", "CLIENT")).rejects.toBeInstanceOf(AuthError);
+  });
+
+  it("wraps token verification failures as AuthError", async () => {
+    mockedVerifyGoogle.mockRejectedValue(new OAuthVerificationError("Could not verify sign-in with this provider"));
+
+    await expect(authService.oauthAuthenticate("google", "bad-token", "CLIENT")).rejects.toBeInstanceOf(AuthError);
   });
 });
 
