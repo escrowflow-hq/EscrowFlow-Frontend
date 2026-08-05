@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { DEPOSIT_FEES, formatUSD, WITHDRAW_FEES } from "@/lib/fees";
 import { computeWalletSummary } from "@/lib/mock/service";
 import { useAppStore } from "@/lib/store";
+import { useAuthStore } from "@/store/auth.store";
 import type { DepositMethod, WithdrawDestination } from "@/lib/types";
 import { Receipt } from "lucide-react";
 
@@ -22,6 +23,8 @@ export default function WalletPage() {
   const deposit = useAppStore((s) => s.deposit);
   const error = useAppStore((s) => s.error);
   const clearError = useAppStore((s) => s.clearError);
+  const userRole = useAuthStore((s) => s.userRole);
+  const canDeposit = userRole === "CLIENT";
 
   const wallet = computeWalletSummary(state);
   const [flow, setFlow] = useState<Flow>("withdraw");
@@ -69,28 +72,30 @@ export default function WalletPage() {
       <BalanceCard wallet={wallet} />
 
       <div className="rounded-xl border border-line bg-white p-5 sm:p-6">
-        <div className="mb-5 inline-flex rounded-xl border border-line bg-surface p-1" role="tablist">
-          {(["withdraw", "deposit"] as Flow[]).map((f) => (
-            <button
-              key={f}
-              type="button"
-              role="tab"
-              aria-selected={flow === f}
-              onClick={() => {
-                setFlow(f);
-                setAmount("");
-                setSuccess(null);
-                clearError();
-              }}
-              className={cn(
-                "rounded-lg px-4 py-1.5 text-sm font-medium capitalize transition-colors",
-                flow === f ? "bg-white text-ink shadow-sm" : "text-ink-secondary"
-              )}
-            >
-              {f}
-            </button>
-          ))}
-        </div>
+        {canDeposit && (
+          <div className="mb-5 inline-flex rounded-xl border border-line bg-surface p-1" role="tablist">
+            {(["withdraw", "deposit"] as Flow[]).map((f) => (
+              <button
+                key={f}
+                type="button"
+                role="tab"
+                aria-selected={flow === f}
+                onClick={() => {
+                  setFlow(f);
+                  setAmount("");
+                  setSuccess(null);
+                  clearError();
+                }}
+                className={cn(
+                  "rounded-lg px-4 py-1.5 text-sm font-medium capitalize transition-colors",
+                  flow === f ? "bg-white text-ink shadow-sm" : "text-ink-secondary"
+                )}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="space-y-5">
           <div>

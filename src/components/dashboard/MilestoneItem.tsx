@@ -12,11 +12,11 @@ import type { Milestone, UserRole } from "@/lib/types";
 
 export function MilestoneItem({
   milestone,
-  viewRole,
+  role,
   escrowFunded,
 }: {
   milestone: Milestone;
-  viewRole: UserRole;
+  role: UserRole;
   escrowFunded: boolean;
 }) {
   const [note, setNote] = useState("");
@@ -32,8 +32,8 @@ export function MilestoneItem({
   const error = useAppStore((s) => s.error);
 
   const canSubmit =
-    viewRole === "FREELANCER" && (milestone.status === "PENDING" || milestone.status === "REJECTED");
-  const canReview = viewRole === "CLIENT" && milestone.status === "SUBMITTED";
+    role === "FREELANCER" && (milestone.status === "PENDING" || milestone.status === "REJECTED");
+  const canReview = role === "CLIENT" && milestone.status === "SUBMITTED";
   const fee = releaseFee(milestone.amount);
 
   return (

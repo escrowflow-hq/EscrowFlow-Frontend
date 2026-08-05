@@ -4,7 +4,6 @@ import { LayoutDashboard, LogOut, Settings, Wallet } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Logo } from "@/components/Logo";
-import { RoleSwitcher } from "@/components/dashboard/RoleSwitcher";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/lib/store";
 import { useAuthStore } from "@/store/auth.store";
@@ -26,10 +25,7 @@ export function Sidebar() {
       <div className="flex h-16 items-center border-b border-line px-6">
         <Logo />
       </div>
-      <div className="px-4 py-4">
-        <RoleSwitcher className="w-full" />
-      </div>
-      <nav className="flex-1 px-3" aria-label="Dashboard">
+      <nav className="flex-1 px-3 py-4" aria-label="Dashboard">
         <ul className="space-y-1">
           {NAV_ITEMS.map((item) => {
             const isActive = item.href === "/app" ? pathname === "/app" : pathname.startsWith(item.href);

@@ -24,9 +24,7 @@ import {
 
 interface AppStore {
   state: MockState;
-  viewRole: UserRole;
   error: string | null;
-  setViewRole: (role: UserRole) => void;
   clearError: () => void;
   approveMilestone: (projectId: string, milestoneId: string) => void;
   requestChanges: (projectId: string, milestoneId: string, reason: string) => void;
@@ -58,9 +56,7 @@ function run(fn: () => MockState, set: (partial: Partial<AppStore>) => void, get
 
 export const useAppStore = create<AppStore>((set, get) => ({
   state: createInitialState(),
-  viewRole: "CLIENT",
   error: null,
-  setViewRole: (role) => set({ viewRole: role, error: null }),
   clearError: () => set({ error: null }),
   approveMilestone: (projectId, milestoneId) =>
     run(() => approveMilestone(get().state, projectId, milestoneId), set, get),

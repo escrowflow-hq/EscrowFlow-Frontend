@@ -6,7 +6,6 @@ import { BalanceCard } from "@/components/dashboard/BalanceCard";
 import { ProjectListItem } from "@/components/dashboard/ProjectListItem";
 import { PaymentListItem } from "@/components/dashboard/PaymentListItem";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { Badge } from "@/components/ui/Badge";
 import { LinkButton } from "@/components/ui/Button";
 import { projectsForRole, useAppStore } from "@/lib/store";
 import { useAuthStore } from "@/store/auth.store";
@@ -19,7 +18,6 @@ function SkeletonBlock({ className }: { className?: string }) {
 export default function OverviewPage() {
   const [isLoading, setIsLoading] = useState(true);
   const state = useAppStore((s) => s.state);
-  const viewRole = useAppStore((s) => s.viewRole);
   const userRole = useAuthStore((s) => s.userRole);
 
   useEffect(() => {
@@ -28,7 +26,7 @@ export default function OverviewPage() {
   }, []);
 
   const wallet = computeWalletSummary(state);
-  const projects = projectsForRole(state, viewRole);
+  const projects = projectsForRole(state, userRole);
   const recentPayments = [...state.payments]
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, 5);
@@ -46,30 +44,31 @@ export default function OverviewPage() {
   return (
     <div className="space-y-8">
       <div>
-        <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-2xl font-semibold text-ink">Overview</h1>
-          <Badge tone="info">You&apos;re viewing as {userRole === "CLIENT" ? "Client" : "Freelancer"}</Badge>
-        </div>
+        <h1 className="text-2xl font-semibold text-ink">Overview</h1>
         <p className="mt-1 text-sm text-ink-secondary">
-          Demo view: {viewRole === "CLIENT" ? "client" : "freelancer"}
+          {userRole === "CLIENT" ? "Manage your projects and escrow." : "Track your projects and earnings."}
         </p>
       </div>
 
       <BalanceCard wallet={wallet} />
 
       <div className="flex flex-wrap gap-3">
-        <LinkButton href="/app/projects/new" size="md">
-          <Plus className="h-4 w-4" aria-hidden="true" />
-          Create project
-        </LinkButton>
+        {userRole === "CLIENT" && (
+          <LinkButton href="/app/projects/new" size="md">
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            Create project
+          </LinkButton>
+        )}
         <LinkButton href="/app/wallet" variant="secondary" size="md">
           <Upload className="h-4 w-4" aria-hidden="true" />
           Withdraw
         </LinkButton>
-        <LinkButton href="/app/wallet" variant="secondary" size="md">
-          <Download className="h-4 w-4" aria-hidden="true" />
-          Deposit
-        </LinkButton>
+        {userRole === "CLIENT" && (
+          <LinkButton href="/app/wallet" variant="secondary" size="md">
+            <Download className="h-4 w-4" aria-hidden="true" />
+            Deposit
+          </LinkButton>
+        )}
       </div>
 
       <section>
@@ -81,12 +80,12 @@ export default function OverviewPage() {
             icon={FolderKanban}
             title="No projects yet"
             description={
-              viewRole === "CLIENT"
+              userRole === "CLIENT"
                 ? "Create your first project to start funding escrow and working with a freelancer."
                 : "Projects you're hired on will show up here once a client adds you."
             }
             action={
-              viewRole === "CLIENT" ? (
+              userRole === "CLIENT" ? (
                 <LinkButton href="/app/projects/new" size="sm">
                   Create project
                 </LinkButton>
@@ -96,7 +95,7 @@ export default function OverviewPage() {
         ) : (
           <div className="grid gap-4 sm:grid-cols-2">
             {projects.map((project) => (
-              <ProjectListItem key={project.id} project={project} viewRole={viewRole} />
+              <ProjectListItem key={project.id} project={project} role={userRole} />
             ))}
           </div>
         )}

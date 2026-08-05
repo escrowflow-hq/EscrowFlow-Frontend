@@ -13,6 +13,7 @@ import { FileList } from "@/components/dashboard/FileList";
 import { formatUSD } from "@/lib/fees";
 import { formatDate, cn } from "@/lib/utils";
 import { useAppStore } from "@/lib/store";
+import { useAuthStore } from "@/store/auth.store";
 
 const TABS = ["overview", "milestones", "messages", "files"] as const;
 type Tab = (typeof TABS)[number];
@@ -29,7 +30,7 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
   const project = useAppStore((s) => s.state.projects.find((p) => p.id === params.id));
   const messages = useAppStore((s) => s.state.messages.filter((m) => m.projectId === params.id));
   const files = useAppStore((s) => s.state.files.filter((f) => f.projectId === params.id));
-  const viewRole = useAppStore((s) => s.viewRole);
+  const userRole = useAuthStore((s) => s.userRole);
   const fundEscrow = useAppStore((s) => s.fundEscrow);
   const error = useAppStore((s) => s.error);
 
@@ -38,7 +39,7 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
   }
 
   const released = project.milestones.filter((m) => m.status === "RELEASED").length;
-  const canFundEscrow = viewRole === "CLIENT" && project.status === "AWAITING_DEPOSIT";
+  const canFundEscrow = userRole === "CLIENT" && project.status === "AWAITING_DEPOSIT";
 
   return (
     <div className="space-y-6">
@@ -106,16 +107,16 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
           </div>
           <div className="rounded-xl border border-line bg-white p-5 sm:col-span-3">
             <p className="mb-3 text-xs text-ink-secondary">
-              {viewRole === "CLIENT" ? "Freelancer" : "Client"}
+              {userRole === "CLIENT" ? "Freelancer" : "Client"}
             </p>
             <div className="flex items-center gap-3">
               <Avatar
-                name={viewRole === "CLIENT" ? project.freelancerName : project.clientName}
+                name={userRole === "CLIENT" ? project.freelancerName : project.clientName}
                 size={40}
               />
               <div>
                 <p className="font-medium text-ink">
-                  {viewRole === "CLIENT" ? project.freelancerName : project.clientName}
+                  {userRole === "CLIENT" ? project.freelancerName : project.clientName}
                 </p>
                 <p className="text-sm text-ink-secondary">Project started {formatDate(project.createdAt)}</p>
               </div>
@@ -133,7 +134,7 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
               <MilestoneItem
                 key={milestone.id}
                 milestone={milestone}
-                viewRole={viewRole}
+                role={userRole}
                 escrowFunded={project.escrowFunded}
               />
             ))}

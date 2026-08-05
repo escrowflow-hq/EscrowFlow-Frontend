@@ -348,10 +348,9 @@ export function createProject(state: MockState, input: CreateProjectInput): Mock
   const id = `proj-${Date.now()}`;
   const freelancerName = input.freelancerEmail.split("@")[0] ?? "Freelancer";
 
-  // This demo has a single simulated identity that toggles between the Client
-  // and Freelancer views (see RoleSwitcher), not two separate accounts. The
-  // invited freelancer IS the current user viewed from the other side, so the
-  // project must be keyed to their id for it to show up once they switch roles.
+  // This mock backend simulates a single seeded identity rather than two real
+  // accounts, so the invited freelancer is keyed to the same demo user id —
+  // that's what lets the project show up when viewed from either role.
   const project: Project = {
     id,
     title: input.title,

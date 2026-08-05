@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Toggle } from "@/components/ui/Toggle";
 import { Badge } from "@/components/ui/Badge";
 import { useAppStore } from "@/lib/store";
+import { useAuthStore } from "@/store/auth.store";
 import type { User } from "@/lib/types";
 
 const NOTIFICATION_LABELS: { key: keyof User["notificationPreferences"]; label: string; description: string }[] = [
@@ -20,6 +21,7 @@ export default function SettingsPage() {
   const currentUser = useAppStore((s) => s.state.currentUser);
   const updateProfile = useAppStore((s) => s.updateProfile);
   const updateNotificationPreference = useAppStore((s) => s.updateNotificationPreference);
+  const userRole = useAuthStore((s) => s.userRole);
 
   const [name, setName] = useState(currentUser.name);
   const [email, setEmail] = useState(currentUser.email);
@@ -44,6 +46,10 @@ export default function SettingsPage() {
         <h1 className="text-2xl font-semibold text-ink">Settings</h1>
         <p className="mt-1 text-sm text-ink-secondary">Manage your profile, notifications, and wallet.</p>
       </div>
+
+      <p className="text-[11px] uppercase tracking-wide text-ink-muted/60">
+        Demo mode: {userRole === "CLIENT" ? "Client" : "Freelancer"}
+      </p>
 
       <section className="rounded-xl border border-line bg-white p-5 sm:p-6">
         <div className="flex items-center gap-4">

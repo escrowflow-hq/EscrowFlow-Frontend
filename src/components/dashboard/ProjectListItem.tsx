@@ -1,15 +1,18 @@
 import Link from "next/link";
-import { ProjectStatusBadge } from "@/components/ui/Badge";
+import { Badge, ProjectStatusBadge } from "@/components/ui/Badge";
 import { ProgressBar } from "@/components/ui/ProgressBar";
-import { formatUSD } from "@/lib/fees";
+import { formatUSD, releaseFee } from "@/lib/fees";
 import type { Project, UserRole } from "@/lib/types";
 
-export function ProjectListItem({ project, viewRole }: { project: Project; viewRole: UserRole }) {
+export function ProjectListItem({ project, role }: { project: Project; role: UserRole }) {
   const released = project.milestones.filter((m) => m.status === "RELEASED").length;
   const total = project.milestones.length;
   const progress = total === 0 ? 0 : (released / total) * 100;
-  const counterparty = viewRole === "CLIENT" ? project.freelancerName : project.clientName;
-  const counterpartyLabel = viewRole === "CLIENT" ? "Freelancer" : "Client";
+  const counterparty = role === "CLIENT" ? project.freelancerName : project.clientName;
+  const counterpartyLabel = role === "CLIENT" ? "Freelancer" : "Client";
+  const earned = project.milestones
+    .filter((m) => m.status === "RELEASED")
+    .reduce((sum, m) => sum + (m.amount - releaseFee(m.amount)), 0);
 
   return (
     <Link
@@ -31,7 +34,21 @@ export function ProjectListItem({ project, viewRole }: { project: Project; viewR
           {released}/{total} milestones
         </span>
       </div>
-      <p className="mt-3 text-sm font-semibold text-ink">{formatUSD(project.budget)} budget</p>
+      <div className="mt-3 flex items-center justify-between gap-3">
+        {role === "CLIENT" ? (
+          <>
+            <p className="text-sm font-semibold text-ink">{formatUSD(project.budget)} budget</p>
+            <Badge tone={project.escrowFunded ? "success" : "warning"}>
+              {project.escrowFunded ? "Escrow funded" : "Awaiting deposit"}
+            </Badge>
+          </>
+        ) : (
+          <>
+            <p className="text-sm font-semibold text-ink">{formatUSD(earned)} earned</p>
+            <span className="text-xs text-ink-secondary">{formatUSD(project.budget)} total</span>
+          </>
+        )}
+      </div>
     </Link>
   );
 }
