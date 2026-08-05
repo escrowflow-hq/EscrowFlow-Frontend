@@ -26,7 +26,7 @@ interface AuthStore {
   isLoading: boolean;
   error: string | null;
   hasHydrated: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, role: UserRole) => Promise<void>;
   register: (name: string, email: string, password: string, role: UserRole) => Promise<void>;
   loginWithProvider: (
     provider: OAuthProvider,
@@ -50,10 +50,10 @@ export const useAuthStore = create<AuthStore>()(
       isLoading: false,
       error: null,
       hasHydrated: false,
-      login: async (email, password) => {
+      login: async (email, password, role) => {
         set({ isLoading: true, error: null });
         try {
-          const { user, token } = await authService.login(email, password);
+          const { user, token } = await authService.login(email, password, role);
           setTokenCookie(token);
           set({ user, token, isAuthenticated: true, userRole: user.role, isLoading: false });
         } catch (err) {

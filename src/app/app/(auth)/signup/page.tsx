@@ -5,19 +5,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/Button";
+import { RoleSelector } from "@/components/ui/RoleSelector";
 import { GoogleButton } from "@/components/auth/GoogleButton";
 import { AppleButton } from "@/components/auth/AppleButton";
 import { useAuthStore } from "@/store/auth.store";
-import { cn } from "@/lib/utils";
 import type { UserRole } from "@/lib/types";
 
 const FIELD_CLASSES =
   "mt-1.5 w-full rounded-xl border border-line p-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary";
-
-const ROLE_OPTIONS: { value: UserRole; label: string; description: string }[] = [
-  { value: "CLIENT", label: "Client", description: "Hire freelancers and pay for milestones" },
-  { value: "FREELANCER", label: "Freelancer", description: "Get hired and withdraw payments safely" },
-];
 
 export default function SignupPage() {
   const router = useRouter();
@@ -69,39 +64,10 @@ export default function SignupPage() {
           <p className="mt-1 text-sm text-ink-secondary">Get paid safely for work, anywhere in the world.</p>
 
           <div className="mt-6">
-            <span className="text-sm font-medium text-ink">I am a...</span>
-            <div className="mt-1.5 grid grid-cols-2 gap-3" role="radiogroup" aria-label="I am a...">
-              {ROLE_OPTIONS.map((option) => {
-                const isSelected = role === option.value;
-                return (
-                  <label
-                    key={option.value}
-                    className={cn(
-                      "flex cursor-pointer flex-col gap-0.5 rounded-xl border p-3 text-sm font-medium transition-colors",
-                      isSelected ? "border-primary bg-primary-light text-primary" : "border-line text-ink hover:bg-surface"
-                    )}
-                  >
-                    <span className="flex items-center gap-2">
-                      <input
-                        type="radio"
-                        name="role"
-                        value={option.value}
-                        checked={isSelected}
-                        onChange={() => setRole(option.value)}
-                        className="sr-only"
-                      />
-                      {option.label}
-                    </span>
-                    <span className={cn("text-xs font-normal", isSelected ? "text-primary/80" : "text-ink-secondary")}>
-                      {option.description}
-                    </span>
-                  </label>
-                );
-              })}
-            </div>
+            <RoleSelector selected={role} onChange={setRole} />
           </div>
 
-          <div className="mt-6 space-y-3">
+          <div className="space-y-3">
             <GoogleButton onCredential={(idToken) => handleOAuth("google", idToken)} disabled={isLoading} />
             <AppleButton
               onCredential={(idToken, nameHint) => handleOAuth("apple", idToken, nameHint)}

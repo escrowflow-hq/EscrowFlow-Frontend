@@ -31,7 +31,7 @@ describe("useAuthStore", () => {
   });
 
   it("authenticates on successful login and persists to localStorage", async () => {
-    await useAuthStore.getState().login("alex@example.com", "password123");
+    await useAuthStore.getState().login("alex@example.com", "password123", "CLIENT");
 
     const state = useAuthStore.getState();
     expect(state.isAuthenticated).toBe(true);
@@ -43,11 +43,23 @@ describe("useAuthStore", () => {
   });
 
   it("sets an error and stays unauthenticated on failed login", async () => {
-    await expect(useAuthStore.getState().login("alex@example.com", "short")).rejects.toThrow();
+    await expect(useAuthStore.getState().login("alex@example.com", "short", "CLIENT")).rejects.toThrow();
 
     const state = useAuthStore.getState();
     expect(state.isAuthenticated).toBe(false);
     expect(state.error).toMatch(/at least 8 characters/i);
+  });
+
+  it("rejects login when the selected role doesn't match the account's real role", async () => {
+    await useAuthStore.getState().register("Alex Rivera", "alex@example.com", "password123", "FREELANCER");
+    // Clear just the session (not the mock backend, which still needs to
+    // remember this account is a Freelancer for the assertion below).
+    useAuthStore.setState({ isAuthenticated: false, token: null, user: null });
+
+    await expect(
+      useAuthStore.getState().login("alex@example.com", "password123", "CLIENT")
+    ).rejects.toThrow(/registered as a Freelancer/i);
+    expect(useAuthStore.getState().isAuthenticated).toBe(false);
   });
 
   it("authenticates on successful register and stores the selected role", async () => {
@@ -97,7 +109,7 @@ describe("useAuthStore", () => {
   });
 
   it("restores persisted auth state via hydrate(), simulating a fresh page load", async () => {
-    await useAuthStore.getState().login("alex@example.com", "password123");
+    await useAuthStore.getState().login("alex@example.com", "password123", "CLIENT");
     const { token, user } = useAuthStore.getState();
     const persistedSession = window.localStorage.getItem("escrowflow-auth");
 
