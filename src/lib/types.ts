@@ -28,14 +28,32 @@ export type WithdrawDestination = "BANK" | "MOBILE_MONEY" | "CRYPTO_WALLET";
 
 export type DepositMethod = "CARD" | "BANK" | "USDC";
 
+export type KycDocumentType = "PASSPORT" | "NATIONAL_ID" | "DRIVERS_LICENSE";
+
+// Deliberately excludes the document/selfie images themselves — see the
+// comment on submitKyc in mock/service.ts for why those never get persisted.
+export interface KycData {
+  fullName: string;
+  dateOfBirth: string;
+  country: string;
+  addressLine1: string;
+  addressLine2?: string;
+  city: string;
+  postalCode: string;
+  documentType: KycDocumentType;
+  submittedAt: string;
+}
+
 export interface User {
   id: string;
   name: string;
   email: string;
   role: UserRole;
   kycStatus: KycStatus;
+  kycData?: KycData;
   walletAddress: string;
   walletAvailable: number;
+  walletCreatedAt?: string;
   avatarColor: string;
   createdAt: string;
   notificationPreferences: {

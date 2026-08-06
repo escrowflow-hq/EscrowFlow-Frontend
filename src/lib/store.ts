@@ -1,11 +1,12 @@
 "use client";
 
 import { create } from "zustand";
-import type { DepositMethod, DisputeOutcome, UserRole, WithdrawDestination } from "@/lib/types";
+import type { DepositMethod, DisputeOutcome, KycData, UserRole, WithdrawDestination } from "@/lib/types";
 import {
   approveMilestone,
   createProject,
   CreateProjectInput,
+  createWallet as createWalletRecord,
   deposit,
   fundEscrow,
   getViewForUser,
@@ -16,12 +17,14 @@ import {
   resolveDispute,
   sendMessage,
   subscribeToBackend,
+  submitKyc,
   submitMilestone,
   updateNotificationPreference,
   updateProfile,
   uploadFile,
   withdraw,
 } from "@/lib/mock/service";
+import { generateStellarKeypair, storeWalletSecret } from "@/lib/wallet";
 import { useAuthStore } from "@/store/auth.store";
 
 interface AppStore {
@@ -41,6 +44,8 @@ interface AppStore {
   uploadFile: (projectId: string, name: string, sizeKb: number) => void;
   updateProfile: (updates: { name?: string }) => void;
   updateNotificationPreference: (key: string, value: boolean) => void;
+  submitKyc: (data: Omit<KycData, "submittedAt">) => void;
+  createWallet: () => void;
 }
 
 // The shared mock backend (lib/mock/service.ts) doesn't know who's "logged
@@ -104,6 +109,13 @@ export const useAppStore = create<AppStore>((set, get) => {
     updateProfile: (updates) => run(() => updateProfile(currentEmail(), updates), set),
     updateNotificationPreference: (key, value) =>
       run(() => updateNotificationPreference(currentEmail(), key as never, value), set),
+    submitKyc: (data) => run(() => submitKyc(currentEmail(), data), set),
+    createWallet: () =>
+      run(() => {
+        const { publicKey, secretKey } = generateStellarKeypair();
+        createWalletRecord(currentEmail(), publicKey);
+        storeWalletSecret(currentEmail(), secretKey);
+      }, set),
   };
 });
 

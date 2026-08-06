@@ -2,6 +2,8 @@ import type {
   DepositMethod,
   Dispute,
   DisputeOutcome,
+  KycData,
+  KycStatus,
   Message,
   Notification,
   NotificationType,
@@ -688,6 +690,47 @@ export function updateNotificationPreference(
 ): void {
   shared.users = shared.users.map((u) =>
     u.email !== actingEmail ? u : { ...u, notificationPreferences: { ...u.notificationPreferences, [key]: value } }
+  );
+  emit();
+}
+
+// The document and selfie images themselves are never passed in here — they
+// only ever live as in-memory previews in KYCModal. This backend persists
+// its entire state as one JSON blob in localStorage (see `persist` above),
+// and that blob holds every account ever created in the browser, forever;
+// writing base64 image data into it risks blowing the localStorage quota and
+// throwing on the next unrelated write, for a field no other part of the app
+// reads. `kycData` here is metadata only.
+export function submitKyc(actingEmail: string, kycData: Omit<KycData, "submittedAt">): User {
+  const user = findUserByEmail(actingEmail);
+  if (!user) throw new MockServiceError("Account not found");
+  if (user.kycStatus === "PENDING" || user.kycStatus === "APPROVED") {
+    throw new MockServiceError("Verification has already been submitted");
+  }
+
+  const updated: User = {
+    ...user,
+    kycStatus: "PENDING",
+    kycData: { ...kycData, submittedAt: new Date().toISOString() },
+  };
+  shared.users = shared.users.map((u) => (u.email !== actingEmail ? u : updated));
+  emit();
+  return updated;
+}
+
+/** Simulates a reviewer's decision — there's no admin surface in this app, so tests call this directly. */
+export function setKycStatus(actingEmail: string, status: KycStatus): void {
+  shared.users = shared.users.map((u) => (u.email !== actingEmail ? u : { ...u, kycStatus: status }));
+  emit();
+}
+
+export function createWallet(actingEmail: string, publicKey: string): void {
+  const user = findUserByEmail(actingEmail);
+  if (!user) throw new MockServiceError("Account not found");
+  if (user.walletAddress) throw new MockServiceError("A wallet already exists for this account");
+
+  shared.users = shared.users.map((u) =>
+    u.email !== actingEmail ? u : { ...u, walletAddress: publicKey, walletCreatedAt: new Date().toISOString() }
   );
   emit();
 }
