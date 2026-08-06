@@ -12,6 +12,20 @@ This repo serves two purposes:
 2. A functional **web dashboard** mirroring the EscrowFlow mobile app, backed by a mock
    data layer so it runs standalone with no API dependency.
 
+## Links
+
+- **Live Demo:** [https://www.escrowflowhq.com](https://www.escrowflowhq.com) (Vercel production)
+- **Local Development:** `npm run dev` → [http://localhost:3000](http://localhost:3000)
+- **Backend Contract:** [https://stellar.expert/explorer/testnet/contract/YOUR_CONTRACT_ID](https://stellar.expert/explorer/testnet/contract/YOUR_CONTRACT_ID)
+  <!-- TODO: replace YOUR_CONTRACT_ID with the deployed Soroban escrow contract's testnet ID before submission -->
+
+## Features
+
+- Role-based client/freelancer views
+- KYC verification
+- Stellar wallet integration
+- Full escrow lifecycle (fund → milestone submission → approval → release → withdrawal)
+
 ## Screenshots
 
 | Landing page | Dashboard overview |
@@ -28,10 +42,11 @@ This repo serves two purposes:
 
 ## Tech stack
 
-- [Next.js 14](https://nextjs.org) (App Router), TypeScript (strict)
+- [Next.js 14](https://nextjs.org) (App Router), [React](https://react.dev), TypeScript (strict)
 - [Tailwind CSS](https://tailwindcss.com)
 - [Zustand](https://github.com/pmndrs/zustand) for dashboard state
 - [lucide-react](https://lucide.dev) for icons
+- Mock data layer (`src/lib/mock`) for standalone, API-free operation
 - [Vitest](https://vitest.dev) + [Testing Library](https://testing-library.com) for tests
 
 ## Getting started

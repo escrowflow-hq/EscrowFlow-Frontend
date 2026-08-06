@@ -114,6 +114,19 @@ describe("shared mock backend", () => {
       expect(projectsForRole(getViewForUser(FREELANCER_EMAIL), "FREELANCER")).toContainEqual(project);
     });
 
+    it("is visible to the freelancer even when the invite email and login email differ in case or whitespace", () => {
+      upsertUserForAuth(CLIENT_EMAIL, "Test Client", "CLIENT");
+      const project = createProject(CLIENT_EMAIL, {
+        title: "Website Redesign",
+        description: "New marketing site",
+        freelancerEmail: "  Test.Freelancer@Example.com  ",
+        milestones: [{ title: "Design", description: "Wireframes", amount: 500 }],
+      });
+
+      const freelancerView = getViewForUser("test.freelancer@example.com");
+      expect(projectsForRole(freelancerView, "FREELANCER")).toContainEqual(project);
+    });
+
     it("rejects creation from a freelancer account", () => {
       upsertUserForAuth(FREELANCER_EMAIL, "Test Freelancer", "FREELANCER");
 

@@ -135,8 +135,14 @@ function pushNotification(
   shared.notifications = [notification, ...shared.notifications].slice(0, 100);
 }
 
+/** Canonicalizes an email so the same identity is recognized regardless of case or stray whitespace. */
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
 export function findUserByEmail(email: string): User | undefined {
-  return shared.users.find((u) => u.email === email);
+  const normalized = normalizeEmail(email);
+  return shared.users.find((u) => u.email === normalized);
 }
 
 function nextAvatarColor(): string {
@@ -144,13 +150,14 @@ function nextAvatarColor(): string {
 }
 
 function ensureUser(email: string, fallbackName: string, role: UserRole): User {
-  const existing = findUserByEmail(email);
+  const normalized = normalizeEmail(email);
+  const existing = findUserByEmail(normalized);
   if (existing) return existing;
 
   const user: User = {
-    id: email,
+    id: normalized,
     name: fallbackName,
-    email,
+    email: normalized,
     role,
     kycStatus: "NOT_STARTED",
     walletAddress: "",
@@ -214,7 +221,8 @@ function creditWallet(email: string, delta: number) {
 }
 
 export function listProjectsForUser(email: string): Project[] {
-  return shared.projects.filter((p) => p.clientEmail === email || p.freelancerEmail === email);
+  const normalized = normalizeEmail(email);
+  return shared.projects.filter((p) => p.clientEmail === normalized || p.freelancerEmail === normalized);
 }
 
 const SIGNED_OUT_USER: User = {
@@ -238,14 +246,15 @@ export function getViewForUser(email: string): MockState {
     return { currentUser: SIGNED_OUT_USER, projects: [], payments: [], messages: [], files: [], disputes: [] };
   }
 
-  const currentUser = findUserByEmail(email) ?? ensureUser(email, email.split("@")[0] || "Member", "CLIENT");
-  const projects = listProjectsForUser(email);
+  const normalized = normalizeEmail(email);
+  const currentUser = findUserByEmail(normalized) ?? ensureUser(normalized, normalized.split("@")[0] || "Member", "CLIENT");
+  const projects = listProjectsForUser(normalized);
   const projectIds = new Set(projects.map((p) => p.id));
 
   return {
     currentUser,
     projects,
-    payments: shared.payments.filter((p) => p.userEmail === email || projectIds.has(p.projectId)),
+    payments: shared.payments.filter((p) => p.userEmail === normalized || projectIds.has(p.projectId)),
     messages: shared.messages.filter((m) => projectIds.has(m.projectId)),
     files: shared.files.filter((f) => projectIds.has(f.projectId)),
     disputes: shared.disputes.filter((d) => projectIds.has(d.projectId)),
@@ -583,7 +592,7 @@ export function createProject(clientEmail: string, input: CreateProjectInput): P
   if (client.role !== "CLIENT") {
     throw new MockServiceError("Only client accounts can create projects");
   }
-  if (input.freelancerEmail === clientEmail) {
+  if (normalizeEmail(input.freelancerEmail) === client.email) {
     throw new MockServiceError("You can't invite yourself as the freelancer");
   }
 
