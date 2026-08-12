@@ -1,24 +1,35 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
 import { Download, FolderKanban, Plus, Upload } from "lucide-react";
 import { BalanceCard } from "@/components/dashboard/BalanceCard";
 import { ProjectListItem } from "@/components/dashboard/ProjectListItem";
 import { PaymentListItem } from "@/components/dashboard/PaymentListItem";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { LinkButton } from "@/components/ui/Button";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { useReducedMotion } from "@/hooks/useReducedMotion";
+import { springs } from "@/lib/animations";
 import { projectsForRole, useAppStore } from "@/lib/store";
 import { useAuthStore } from "@/store/auth.store";
 import { computeWalletSummary, paymentDirection } from "@/lib/mock/service";
 
-function SkeletonBlock({ className }: { className?: string }) {
-  return <div className={`animate-pulse rounded-xl bg-line/60 ${className ?? ""}`} />;
-}
+const LIST_CONTAINER = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.06 } },
+};
+
+const LIST_ITEM = {
+  hidden: { opacity: 0, y: 12 },
+  show: { opacity: 1, y: 0 },
+};
 
 export default function OverviewPage() {
   const [isLoading, setIsLoading] = useState(true);
   const state = useAppStore((s) => s.state);
   const userRole = useAuthStore((s) => s.userRole);
+  const prefersReducedMotion = useReducedMotion();
 
   useEffect(() => {
     const timer = setTimeout(() => setIsLoading(false), 350);
@@ -34,9 +45,9 @@ export default function OverviewPage() {
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <SkeletonBlock className="h-40" />
-        <SkeletonBlock className="h-24" />
-        <SkeletonBlock className="h-64" />
+        <Skeleton className="h-40" />
+        <Skeleton className="h-24" />
+        <Skeleton className="h-64" />
       </div>
     );
   }
@@ -93,11 +104,18 @@ export default function OverviewPage() {
             }
           />
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2">
+          <motion.div
+            className="grid gap-4 sm:grid-cols-2"
+            variants={prefersReducedMotion ? undefined : LIST_CONTAINER}
+            initial={prefersReducedMotion ? undefined : "hidden"}
+            animate={prefersReducedMotion ? undefined : "show"}
+          >
             {projects.map((project) => (
-              <ProjectListItem key={project.id} project={project} role={userRole} />
+              <motion.div key={project.id} variants={prefersReducedMotion ? undefined : LIST_ITEM} transition={springs.default}>
+                <ProjectListItem project={project} role={userRole} />
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
         )}
       </section>
 
@@ -110,11 +128,18 @@ export default function OverviewPage() {
             description="Payments from milestone releases, deposits, and withdrawals will appear here."
           />
         ) : (
-          <div className="space-y-3">
+          <motion.div
+            className="space-y-3"
+            variants={prefersReducedMotion ? undefined : LIST_CONTAINER}
+            initial={prefersReducedMotion ? undefined : "hidden"}
+            animate={prefersReducedMotion ? undefined : "show"}
+          >
             {recentPayments.map((payment) => (
-              <PaymentListItem key={payment.id} payment={payment} direction={paymentDirection(payment, state)} />
+              <motion.div key={payment.id} variants={prefersReducedMotion ? undefined : LIST_ITEM} transition={springs.default}>
+                <PaymentListItem payment={payment} direction={paymentDirection(payment, state)} />
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
         )}
       </section>
     </div>
