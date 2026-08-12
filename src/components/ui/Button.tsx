@@ -1,6 +1,10 @@
 import { cn } from "@/lib/utils";
+import { reducedMotionTransition, springs } from "@/lib/animations";
+import { useReducedMotion } from "@/hooks/useReducedMotion";
+import { motion, type HTMLMotionProps } from "framer-motion";
 import Link from "next/link";
-import type { ButtonHTMLAttributes } from "react";
+
+const MotionLink = motion.create(Link);
 
 type Variant = "primary" | "secondary" | "ghost" | "danger";
 type Size = "sm" | "md" | "lg";
@@ -21,15 +25,21 @@ const SIZE_CLASSES: Record<Size, string> = {
 const BASE =
   "inline-flex items-center justify-center gap-2 rounded-xl font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2";
 
-interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+interface ButtonProps extends HTMLMotionProps<"button"> {
   variant?: Variant;
   size?: Size;
 }
 
-export function Button({ variant = "primary", size = "md", className, ...props }: ButtonProps) {
+export function Button({ variant = "primary", size = "md", className, disabled, ...props }: ButtonProps) {
+  const prefersReducedMotion = useReducedMotion();
+
   return (
-    <button
+    <motion.button
       className={cn(BASE, VARIANT_CLASSES[variant], SIZE_CLASSES[size], className)}
+      disabled={disabled}
+      whileHover={!disabled && !prefersReducedMotion ? { scale: 1.02 } : undefined}
+      whileTap={!disabled && !prefersReducedMotion ? { scale: 0.98 } : undefined}
+      transition={prefersReducedMotion ? reducedMotionTransition : springs.snappy}
       {...props}
     />
   );
@@ -44,9 +54,17 @@ interface LinkButtonProps {
 }
 
 export function LinkButton({ href, variant = "primary", size = "md", className, children }: LinkButtonProps) {
+  const prefersReducedMotion = useReducedMotion();
+
   return (
-    <Link href={href} className={cn(BASE, VARIANT_CLASSES[variant], SIZE_CLASSES[size], className)}>
+    <MotionLink
+      href={href}
+      className={cn(BASE, VARIANT_CLASSES[variant], SIZE_CLASSES[size], className)}
+      whileHover={prefersReducedMotion ? undefined : { scale: 1.02 }}
+      whileTap={prefersReducedMotion ? undefined : { scale: 0.98 }}
+      transition={prefersReducedMotion ? reducedMotionTransition : springs.snappy}
+    >
       {children}
-    </Link>
+    </MotionLink>
   );
 }
