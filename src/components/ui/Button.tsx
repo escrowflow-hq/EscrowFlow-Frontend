@@ -1,3 +1,5 @@
+"use client";
+
 import { cn } from "@/lib/utils";
 import { reducedMotionTransition, springs } from "@/lib/animations";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
