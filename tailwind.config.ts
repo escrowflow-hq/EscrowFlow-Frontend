@@ -33,6 +33,16 @@ const config: Config = {
       fontFamily: {
         sans: ["var(--font-inter)", "system-ui", "sans-serif"],
       },
+      fontSize: {
+        "display-lg": ["clamp(2rem, 5vw, 3rem)", { lineHeight: "1.2", letterSpacing: "-0.02em", fontWeight: "700" }],
+        "display-md": ["clamp(1.5rem, 4vw, 2rem)", { lineHeight: "1.3", letterSpacing: "-0.01em", fontWeight: "600" }],
+        "heading-lg": ["1.5rem", { lineHeight: "1.4", fontWeight: "600" }],
+        "heading-md": ["1.25rem", { lineHeight: "1.4", fontWeight: "600" }],
+        "heading-sm": ["1rem", { lineHeight: "1.5", fontWeight: "600" }],
+        "body-lg": ["1.125rem", { lineHeight: "1.6", fontWeight: "400" }],
+        "label-caps": ["0.75rem", { lineHeight: "1.3", letterSpacing: "0.08em", fontWeight: "600" }],
+        caption: ["0.75rem", { lineHeight: "1.4", fontWeight: "400" }],
+      },
       borderRadius: {
         xl: "0.875rem",
         "2xl": "1.25rem",
