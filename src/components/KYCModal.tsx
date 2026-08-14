@@ -4,6 +4,7 @@ import { useEffect, useState, type ChangeEvent } from "react";
 import { Camera, CheckCircle2, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { CountrySelect } from "@/components/ui/CountrySelect";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { useAppStore } from "@/lib/store";
 import { personalInfoIsValid } from "@/lib/kycValidation";
 import type { KycDocumentType } from "@/lib/types";
@@ -53,13 +54,7 @@ export function KYCModal({ onClose }: { onClose: () => void }) {
   const [selfiePreview, setSelfiePreview] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState(false);
 
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+  const containerRef = useFocusTrap<HTMLDivElement>(onClose);
 
   useEffect(() => {
     return () => {
@@ -95,9 +90,11 @@ export function KYCModal({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50 p-4" onClick={onClose}>
       <div
+        ref={containerRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="kyc-modal-title"
+        tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
         className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-line bg-white p-6 shadow-xl"
       >

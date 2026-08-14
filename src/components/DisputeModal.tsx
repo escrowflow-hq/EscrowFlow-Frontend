@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
 import { CheckCircle2, Clock, Loader2, Scale, User, X } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 import type { Dispute, DisputeOutcome } from "@/lib/types";
 
 const OUTCOME_LABEL: Record<DisputeOutcome, string> = {
@@ -12,13 +12,7 @@ const OUTCOME_LABEL: Record<DisputeOutcome, string> = {
 };
 
 export function DisputeModal({ dispute, onClose }: { dispute: Dispute; onClose: () => void }) {
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+  const containerRef = useFocusTrap<HTMLDivElement>(onClose);
 
   return (
     <div
@@ -26,9 +20,11 @@ export function DisputeModal({ dispute, onClose }: { dispute: Dispute; onClose: 
       onClick={onClose}
     >
       <div
+        ref={containerRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="dispute-modal-title"
+        tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-md rounded-2xl border border-line bg-white p-6 shadow-xl"
       >

@@ -12,7 +12,7 @@ export default function LandingPage() {
   return (
     <>
       <Nav />
-      <main>
+      <main id="main">
         <Hero />
         <TrustStrip />
         <HowItWorks />
