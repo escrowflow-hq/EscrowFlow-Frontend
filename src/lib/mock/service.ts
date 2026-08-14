@@ -24,8 +24,9 @@ import {
   SEED_USERS,
 } from "@/lib/mock/data";
 import { DEPOSIT_FEES, releaseFee, WITHDRAW_FEES } from "@/lib/fees";
+import { AppError } from "@/lib/errors";
 
-export class MockServiceError extends Error {}
+export class MockServiceError extends AppError {}
 
 /** Per-identity read model handed to the UI — a scoped view over the shared backend below. */
 export interface MockState {
