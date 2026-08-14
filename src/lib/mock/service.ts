@@ -24,8 +24,10 @@ import {
   SEED_USERS,
 } from "@/lib/mock/data";
 import { DEPOSIT_FEES, releaseFee, WITHDRAW_FEES } from "@/lib/fees";
+import { AppError } from "@/lib/errors";
+import { isValidUsdcAmount, sanitizeText } from "@/lib/validation";
 
-export class MockServiceError extends Error {}
+export class MockServiceError extends AppError {}
 
 /** Per-identity read model handed to the UI — a scoped view over the shared backend below. */
 export interface MockState {
@@ -309,6 +311,8 @@ export function submitMilestone(projectId: string, milestoneId: string, note: st
   if (milestone.status !== "PENDING" && milestone.status !== "REJECTED") {
     throw new MockServiceError(`Milestone cannot be submitted from status ${milestone.status}`);
   }
+  const cleanNote = sanitizeText(note);
+  if (!cleanNote) throw new MockServiceError("Submission note can't be empty");
 
   const now = new Date().toISOString();
   replaceProject({
@@ -316,7 +320,7 @@ export function submitMilestone(projectId: string, milestoneId: string, note: st
     milestones: project.milestones.map((m) =>
       m.id !== milestoneId
         ? m
-        : { ...m, status: "SUBMITTED", submittedAt: now, submissionNote: note, rejectionReason: undefined }
+        : { ...m, status: "SUBMITTED", submittedAt: now, submissionNote: cleanNote, rejectionReason: undefined }
     ),
   });
 
@@ -387,12 +391,14 @@ export function requestChanges(projectId: string, milestoneId: string, reason: s
   if (milestone.status !== "SUBMITTED") {
     throw new MockServiceError(`Cannot request changes on milestone with status ${milestone.status}`);
   }
+  const cleanReason = sanitizeText(reason);
+  if (!cleanReason) throw new MockServiceError("Reason can't be empty");
 
   const now = new Date().toISOString();
   replaceProject({
     ...project,
     milestones: project.milestones.map((m) =>
-      m.id !== milestoneId ? m : { ...m, status: "REJECTED", rejectedAt: now, rejectionReason: reason }
+      m.id !== milestoneId ? m : { ...m, status: "REJECTED", rejectedAt: now, rejectionReason: cleanReason }
     ),
   });
 
@@ -526,7 +532,7 @@ export function fundEscrow(projectId: string, actingEmail: string): void {
 }
 
 export function withdraw(actingEmail: string, amount: number, destination: WithdrawDestination): void {
-  if (amount <= 0) throw new MockServiceError("Enter an amount greater than zero");
+  if (!isValidUsdcAmount(amount)) throw new MockServiceError("Enter a valid amount");
   const user = findUserByEmail(actingEmail);
   if (!user) throw new MockServiceError("Account not found");
 
@@ -556,7 +562,7 @@ export function withdraw(actingEmail: string, amount: number, destination: Withd
 }
 
 export function deposit(actingEmail: string, amount: number, method: DepositMethod): void {
-  if (amount <= 0) throw new MockServiceError("Enter an amount greater than zero");
+  if (!isValidUsdcAmount(amount)) throw new MockServiceError("Enter a valid amount");
   const fee = DEPOSIT_FEES[method].fee(amount);
   const net = Math.round((amount - fee) * 100) / 100;
 
@@ -614,8 +620,8 @@ export function createProject(clientEmail: string, input: CreateProjectInput): P
 
   const project: Project = {
     id,
-    title: input.title,
-    description: input.description,
+    title: sanitizeText(input.title),
+    description: sanitizeText(input.description),
     clientId: client.id,
     clientName: client.name,
     clientEmail: client.email,
@@ -656,12 +662,15 @@ export function sendMessage(projectId: string, actingEmail: string, actingName: 
   const project = findProject(projectId);
   requireParty(project, actingEmail);
 
+  const cleanBody = sanitizeText(body);
+  if (!cleanBody) throw new MockServiceError("Message can't be empty");
+
   const message: Message = {
     id: `msg-${Date.now()}`,
     projectId,
     senderId: findUserByEmail(actingEmail)?.id ?? actingEmail,
     senderName: actingName,
-    body,
+    body: cleanBody,
     createdAt: new Date().toISOString(),
   };
   shared.messages = [...shared.messages, message];

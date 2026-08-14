@@ -10,7 +10,13 @@ const COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
 
 function setTokenCookie(token: string) {
   if (typeof document === "undefined") return;
-  document.cookie = `${TOKEN_COOKIE}=${token}; path=/; max-age=${COOKIE_MAX_AGE_SECONDS}; SameSite=Lax`;
+  // Can't be HttpOnly — it's set from client JS, so it's still readable by
+  // any script that runs on the page (same exposure as the token already
+  // has via zustand's localStorage persistence below). Real hardening here
+  // means issuing this as a server-set HttpOnly cookie once there's a
+  // backend to do that.
+  const secure = window.location.protocol === "https:" ? "; Secure" : "";
+  document.cookie = `${TOKEN_COOKIE}=${token}; path=/; max-age=${COOKIE_MAX_AGE_SECONDS}; SameSite=Lax${secure}`;
 }
 
 function clearTokenCookie() {

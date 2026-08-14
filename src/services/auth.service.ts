@@ -1,7 +1,9 @@
 import { API_URL, APPLE_CLIENT_ID, GOOGLE_CLIENT_ID, USE_MOCK } from "@/lib/config";
+import { AppError } from "@/lib/errors";
 import { findUserByEmail, upsertUserForAuth } from "@/lib/mock/service";
 import { OAuthVerificationError, verifyAppleIdToken, verifyGoogleIdToken } from "@/lib/oauth/verify";
 import type { User, UserRole } from "@/lib/types";
+import { isValidEmail } from "@/lib/validation";
 
 export interface AuthResult {
   user: User;
@@ -10,10 +12,10 @@ export interface AuthResult {
 
 export type OAuthProvider = "google" | "apple";
 
-export class AuthError extends Error {}
+export class AuthError extends AppError {}
 
 function assertEmail(email: string) {
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+  if (!isValidEmail(email)) {
     throw new AuthError("Enter a valid email address");
   }
 }

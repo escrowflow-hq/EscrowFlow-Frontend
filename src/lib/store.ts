@@ -25,6 +25,7 @@ import {
   withdraw,
 } from "@/lib/mock/service";
 import { generateStellarKeypair, storeWalletSecret } from "@/lib/wallet";
+import { logError } from "@/lib/errors";
 import { useAuthStore } from "@/store/auth.store";
 
 interface AppStore {
@@ -63,6 +64,7 @@ function run(fn: () => void, set: (partial: Partial<AppStore>) => void) {
     if (err instanceof MockServiceError) {
       set({ error: err.message });
     } else {
+      logError(err);
       throw err;
     }
   }
