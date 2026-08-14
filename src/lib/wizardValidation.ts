@@ -1,3 +1,5 @@
+import { isValidEmail } from "@/lib/validation";
+
 export interface WizardMilestoneDraft {
   title: string;
   description: string;
@@ -14,8 +16,6 @@ export interface MilestoneErrors {
   amount?: string;
 }
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
 export function validateDetails(title: string, description: string): DetailsErrors {
   const errors: DetailsErrors = {};
   if (title.trim().length < 3) {
@@ -31,7 +31,7 @@ export function validateFreelancerEmail(email: string): string | undefined {
   if (email.trim().length === 0) {
     return "Freelancer email is required";
   }
-  if (!EMAIL_RE.test(email.trim())) {
+  if (!isValidEmail(email)) {
     return "Enter a valid email address";
   }
   return undefined;
