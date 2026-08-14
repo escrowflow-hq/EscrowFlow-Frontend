@@ -36,7 +36,11 @@ export function StellarWallet() {
         <Button onClick={handleCreate} disabled={isCreating}>
           Create Stellar wallet
         </Button>
-        {error && <p className="text-sm text-danger">{error}</p>}
+        {error && (
+          <p role="alert" className="text-sm text-danger">
+            {error}
+          </p>
+        )}
       </div>
     );
   }

@@ -191,7 +191,9 @@ export default function WalletPage() {
           )}
 
           {(insufficientBalance || error) && (
-            <p className="text-sm text-danger">{error ?? "Insufficient balance for this withdrawal."}</p>
+            <p role="alert" className="text-sm text-danger">
+              {error ?? "Insufficient balance for this withdrawal."}
+            </p>
           )}
           {success && <p className="text-sm text-success">{success}</p>}
 

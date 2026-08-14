@@ -160,7 +160,11 @@ export function MilestoneItem({
         </div>
       )}
 
-      {error && (canSubmit || canReview) && <p className="mt-2 text-sm text-danger">{error}</p>}
+      {error && (canSubmit || canReview) && (
+        <p role="alert" className="mt-2 text-sm text-danger">
+          {error}
+        </p>
+      )}
 
       {disputeOpen && dispute && <DisputeModal dispute={dispute} onClose={() => setDisputeOpen(false)} />}
     </li>

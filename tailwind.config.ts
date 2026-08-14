@@ -14,7 +14,10 @@ const config: Config = {
         ink: {
           DEFAULT: "#1A1D26",
           secondary: "#6B7280",
-          muted: "#9CA3AF",
+          // Was #9CA3AF (2.54:1 on white — fails WCAG AA even for large
+          // text). #6E7680 clears 4.5:1 while staying a step lighter than
+          // ink-secondary.
+          muted: "#6E7680",
         },
         line: "#E5E7EB",
         success: {
@@ -22,7 +25,9 @@ const config: Config = {
           bg: "#DCFCE7",
         },
         warning: {
-          DEFAULT: "#F59E0B",
+          // Was #F59E0B (2.15:1 on white, 1.93:1 on warning-bg — fails AA
+          // everywhere it's used as text). #92400E clears 4.5:1 on both.
+          DEFAULT: "#92400E",
           bg: "#FEF3C7",
         },
         danger: {

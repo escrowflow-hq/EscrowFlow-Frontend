@@ -69,7 +69,11 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
           </Button>
         </div>
       )}
-      {error && canFundEscrow && <p className="text-sm text-danger">{error}</p>}
+      {error && canFundEscrow && (
+        <p role="alert" className="text-sm text-danger">
+          {error}
+        </p>
+      )}
 
       <div className="flex gap-1 overflow-x-auto rounded-xl border border-line bg-white p-1" role="tablist">
         {TABS.map((t) => (

@@ -49,6 +49,8 @@ export function CountrySelect({
       <button
         id={id}
         type="button"
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
         onClick={() => (isOpen ? setIsOpen(false) : open())}
         className="mt-1.5 flex w-full items-center justify-between rounded-xl border border-line p-3 text-left text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       >
@@ -62,6 +64,7 @@ export function CountrySelect({
         <div className="absolute z-10 mt-1.5 w-full overflow-hidden rounded-xl border border-line bg-white shadow-lg">
           <input
             autoFocus
+            aria-label="Search countries"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search countries…"

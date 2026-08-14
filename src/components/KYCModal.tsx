@@ -258,7 +258,11 @@ export function KYCModal({ onClose }: { onClose: () => void }) {
               I confirm this is me and these documents are valid.
             </label>
 
-            {error && <p className="text-sm text-danger">{error}</p>}
+            {error && (
+              <p role="alert" className="text-sm text-danger">
+                {error}
+              </p>
+            )}
 
             <div className="flex gap-3">
               <Button variant="secondary" className="flex-1" onClick={() => setStep(2)}>

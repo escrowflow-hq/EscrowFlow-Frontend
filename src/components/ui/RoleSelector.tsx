@@ -11,7 +11,7 @@ export const RoleSelector = ({ selected, onChange }: RoleSelectorProps) => (
         type="button"
         onClick={() => onChange("CLIENT")}
         aria-pressed={selected === "CLIENT"}
-        className={`rounded-2xl border-2 p-6 text-left transition ${
+        className={`rounded-2xl border-2 p-6 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
           selected === "CLIENT" ? "border-primary bg-primary-light" : "border-line bg-surface hover:border-primary"
         }`}
       >
@@ -23,7 +23,7 @@ export const RoleSelector = ({ selected, onChange }: RoleSelectorProps) => (
         type="button"
         onClick={() => onChange("FREELANCER")}
         aria-pressed={selected === "FREELANCER"}
-        className={`rounded-2xl border-2 p-6 text-left transition ${
+        className={`rounded-2xl border-2 p-6 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
           selected === "FREELANCER" ? "border-primary bg-primary-light" : "border-line bg-surface hover:border-primary"
         }`}
       >
